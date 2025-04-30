@@ -2,20 +2,23 @@
 import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { BlogCard } from '@/components/BlogPost/BlogCard';
-import { FeaturedPost } from '@/components/BlogPost/FeaturedPost';
-import { getFeaturedBlogPosts, getRecentBlogPosts } from '@/lib/storage';
+import { getRecentBlogPosts } from '@/lib/storage';
 import { BlogPost, categoryLabels, BlogCategory } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Shield } from 'lucide-react';
 
 const Index = () => {
-  const [featuredPosts, setFeaturedPosts] = useState<BlogPost[]>([]);
   const [recentPosts, setRecentPosts] = useState<BlogPost[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<'all' | BlogCategory>('all');
   const [filteredPosts, setFilteredPosts] = useState<BlogPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setFeaturedPosts(getFeaturedBlogPosts());
-    setRecentPosts(getRecentBlogPosts(12));
+    setIsLoading(true);
+    // Get more posts since we don't have featured posts now
+    const posts = getRecentBlogPosts(24);
+    setRecentPosts(posts);
+    setIsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -28,68 +31,84 @@ const Index = () => {
 
   return (
     <MainLayout>
-      <div className="bg-accent py-8">
-        <div className="container">
-          <h1 className="text-3xl md:text-4xl font-bold text-center mb-2">Data Shield Blogs</h1>
-          <p className="text-center text-muted-foreground mb-6">
-            Insights on emerging technologies across real estate, finance, healthcare, and supply chain
+      <div className="bg-accent py-12">
+        <div className="container max-w-6xl">
+          <div className="flex justify-center mb-4">
+            <div className="inline-flex items-center bg-white/30 dark:bg-black/30 backdrop-blur-sm rounded-full px-4 py-2">
+              <Shield className="h-6 w-6 text-shield mr-2" />
+              <span className="text-sm font-medium">Secure Insights</span>
+            </div>
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold text-center mb-4 bg-gradient-to-r from-shield-dark to-shield bg-clip-text text-transparent">Data Shield Blogs</h1>
+          <p className="text-center text-muted-foreground mb-6 max-w-2xl mx-auto">
+            Expert insights on emerging technologies across real estate, finance, healthcare, supply chain, and cybersecurity
           </p>
         </div>
       </div>
       
-      <div className="container py-8">
-        {featuredPosts.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">Featured Articles</h2>
-            <FeaturedPost post={featuredPosts[0]} />
-          </section>
-        )}
-        
-        <section>
-          <h2 className="text-2xl font-bold mb-6">Latest Articles</h2>
-          
-          <Tabs defaultValue="all" className="mb-8">
-            <TabsList className="mb-6">
-              <TabsTrigger value="all" onClick={() => setSelectedCategory('all')}>
-                All
-              </TabsTrigger>
-              {Object.entries(categoryLabels).map(([key, label]) => (
-                <TabsTrigger 
-                  key={key}
-                  value={key}
-                  onClick={() => setSelectedCategory(key as BlogCategory)}
-                >
-                  {label}
+      <div className="container py-12 max-w-6xl">
+        <section className="mb-8">
+          <Tabs defaultValue="all" className="w-full">
+            <div className="flex justify-center mb-6">
+              <TabsList className="bg-accent/50 p-1">
+                <TabsTrigger value="all" onClick={() => setSelectedCategory('all')} className="text-sm">
+                  All
                 </TabsTrigger>
-              ))}
-            </TabsList>
+                {Object.entries(categoryLabels).map(([key, label]) => (
+                  <TabsTrigger 
+                    key={key}
+                    value={key}
+                    onClick={() => setSelectedCategory(key as BlogCategory)}
+                    className="text-sm"
+                  >
+                    {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
             
             <TabsContent value="all" className="m-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredPosts.map((post) => (
-                  <BlogCard key={post.id} post={post} />
-                ))}
-              </div>
-              
-              {filteredPosts.length === 0 && (
+              {isLoading ? (
                 <div className="text-center py-12">
-                  <p className="text-muted-foreground">No articles found.</p>
+                  <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                 </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredPosts.map((post) => (
+                      <BlogCard key={post.id} post={post} />
+                    ))}
+                  </div>
+                  
+                  {filteredPosts.length === 0 && (
+                    <div className="text-center py-12 bg-muted/50 rounded-lg">
+                      <p className="text-muted-foreground">No articles found.</p>
+                    </div>
+                  )}
+                </>
               )}
             </TabsContent>
             
             {Object.keys(categoryLabels).map((key) => (
               <TabsContent key={key} value={key} className="m-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredPosts.map((post) => (
-                    <BlogCard key={post.id} post={post} />
-                  ))}
-                </div>
-                
-                {filteredPosts.length === 0 && (
+                {isLoading ? (
                   <div className="text-center py-12">
-                    <p className="text-muted-foreground">No articles found in this category.</p>
+                    <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
                   </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {filteredPosts.map((post) => (
+                        <BlogCard key={post.id} post={post} />
+                      ))}
+                    </div>
+                    
+                    {filteredPosts.length === 0 && (
+                      <div className="text-center py-12 bg-muted/50 rounded-lg">
+                        <p className="text-muted-foreground">No articles found in this category.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </TabsContent>
             ))}

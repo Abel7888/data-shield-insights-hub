@@ -19,13 +19,14 @@ export interface BlogPost {
   featured?: boolean;
 }
 
-export type BlogCategory = 'real-estate' | 'finance' | 'healthcare' | 'supply-chain';
+export type BlogCategory = 'real-estate' | 'finance' | 'healthcare' | 'supply-chain' | 'cybersecurity';
 
 export const categoryLabels: Record<BlogCategory, string> = {
   'real-estate': 'Real Estate',
   'finance': 'Finance',
   'healthcare': 'Healthcare',
-  'supply-chain': 'Supply Chain'
+  'supply-chain': 'Supply Chain',
+  'cybersecurity': 'Cybersecurity'
 };
 
 export interface AuthState {

@@ -96,35 +96,49 @@
 }
 
 .blog-content {
-  @apply prose max-w-none lg:prose-lg;
+  @apply prose max-w-none lg:prose-lg prose-headings:text-shield-dark dark:prose-headings:text-shield-light prose-a:text-shield dark:prose-a:text-shield-light;
 }
 
 .blog-content img {
-  @apply my-6 rounded-lg shadow-md;
+  @apply my-8 rounded-lg shadow-md mx-auto;
+  max-height: 600px;
+  object-fit: contain;
 }
 
 .blog-content h2 {
-  @apply text-shield-dark dark:text-shield-light font-bold mt-8;
+  @apply text-shield-dark dark:text-shield-light font-bold mt-10 mb-5 text-2xl;
 }
 
 .blog-content h3 {
-  @apply text-shield dark:text-shield-light font-semibold mt-6;
+  @apply text-shield dark:text-shield-light font-semibold mt-8 mb-4 text-xl;
 }
 
 .blog-content a {
-  @apply text-shield hover:text-shield-dark dark:hover:text-shield-light underline;
+  @apply text-shield hover:text-shield-dark dark:hover:text-shield-light underline transition-colors;
 }
 
 .blog-content blockquote {
-  @apply border-l-4 border-shield pl-4 italic my-6;
+  @apply border-l-4 border-shield pl-5 italic my-8 bg-accent/50 py-2 pr-4 rounded-r;
 }
 
 .blog-content ul, .blog-content ol {
-  @apply my-4 pl-6;
+  @apply my-6 pl-6 space-y-2;
 }
 
 .blog-content li {
   @apply mb-2;
+}
+
+.blog-content p {
+  @apply leading-relaxed mb-6 text-gray-800 dark:text-gray-200;
+}
+
+.blog-content pre {
+  @apply rounded-lg my-8;
+}
+
+.blog-content code {
+  @apply text-sm;
 }
 
 /* Fix for grey bullets in article content */
@@ -149,4 +163,28 @@
 
 .blog-content ul li, .blog-content ol li {
   @apply relative pl-0;
+}
+
+/* Fix image loading performance */
+img {
+  @apply transition-opacity;
+  opacity: 0;
+  animation: fadeIn 0.3s ease-in forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Improved card transitions */
+.card-hover-effect {
+  @apply transition-all duration-300 hover:shadow-lg;
+}
+
+/* Improved scrolling performance */
+@supports (scrollbar-gutter: stable) {
+  html {
+    scrollbar-gutter: stable;
+  }
 }
