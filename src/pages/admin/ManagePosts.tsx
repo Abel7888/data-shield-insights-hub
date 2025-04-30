@@ -35,12 +35,18 @@ const ManagePosts = () => {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
 
+  // Load posts when component mounts
   useEffect(() => {
+    loadPosts();
+  }, []);
+
+  const loadPosts = () => {
     const allPosts = getBlogPosts();
     setPosts(allPosts);
     setFilteredPosts(allPosts);
-  }, []);
+  };
 
+  // Filter posts when search term changes
   useEffect(() => {
     if (searchTerm.trim() === '') {
       setFilteredPosts(posts);
@@ -70,13 +76,8 @@ const ManagePosts = () => {
           description: `"${postToDelete.title}" has been permanently deleted.`,
         });
         
-        // Update state to reflect deletion
-        const updatedPosts = posts.filter(p => p.id !== postToDelete.id);
-        setPosts(updatedPosts);
-        setFilteredPosts(updatedPosts.filter(post => 
-          post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          post.excerpt.toLowerCase().includes(searchTerm.toLowerCase())
-        ));
+        // Update state to reflect deletion by reloading posts from storage
+        loadPosts();
       } else {
         toast({
           title: 'Error',

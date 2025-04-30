@@ -5,6 +5,7 @@ import { BlogPost, User, BlogCategory } from './types';
 const POSTS_STORAGE_KEY = 'data-shield-blog-posts';
 const USERS_STORAGE_KEY = 'data-shield-blog-users';
 const AUTH_TOKEN_KEY = 'data-shield-auth-token';
+const INIT_FLAG_KEY = 'data-shield-initialized';
 
 // Helper to generate random IDs
 export const generateId = (): string => {
@@ -23,7 +24,19 @@ export const generateSlug = (title: string): string => {
 // Blog Post Storage
 export const getBlogPosts = (): BlogPost[] => {
   const posts = localStorage.getItem(POSTS_STORAGE_KEY);
-  return posts ? JSON.parse(posts) : seedBlogPosts();
+  const initialized = localStorage.getItem(INIT_FLAG_KEY);
+  
+  if (posts) {
+    return JSON.parse(posts);
+  } else if (!initialized) {
+    // Only seed the first time
+    const seededPosts = seedBlogPosts();
+    localStorage.setItem(INIT_FLAG_KEY, 'true');
+    return seededPosts;
+  } else {
+    // Return empty array if initialized but no posts
+    return [];
+  }
 };
 
 export const getBlogPostBySlug = (slug: string): BlogPost | undefined => {

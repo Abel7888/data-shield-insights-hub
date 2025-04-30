@@ -6,6 +6,7 @@ import { getRecentBlogPosts } from '@/lib/storage';
 import { BlogPost, categoryLabels, BlogCategory } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Shield } from 'lucide-react';
+import { AdBanner } from '@/components/Advertisement/AdBanner';
 
 const Index = () => {
   const [recentPosts, setRecentPosts] = useState<BlogPost[]>([]);
@@ -46,7 +47,12 @@ const Index = () => {
         </div>
       </div>
       
-      <div className="container py-12 max-w-6xl">
+      <div className="container py-8 max-w-6xl">
+        {/* Advertisement Banner - Top of homepage */}
+        <div className="mb-8">
+          <AdBanner variant="inline" />
+        </div>
+        
         <section className="mb-8">
           <Tabs defaultValue="all" className="w-full">
             <div className="flex justify-center mb-6">
@@ -75,7 +81,21 @@ const Index = () => {
               ) : (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredPosts.map((post) => (
+                    {filteredPosts.length > 0 && filteredPosts.slice(0, 3).map((post) => (
+                      <BlogCard key={post.id} post={post} />
+                    ))}
+                  </div>
+                  
+                  {/* Middle Advertisement Banner */}
+                  {filteredPosts.length > 3 && (
+                    <div className="my-8">
+                      <AdBanner variant="inline" />
+                    </div>
+                  )}
+                  
+                  {/* Remaining Posts */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                    {filteredPosts.length > 3 && filteredPosts.slice(3).map((post) => (
                       <BlogCard key={post.id} post={post} />
                     ))}
                   </div>
@@ -98,7 +118,21 @@ const Index = () => {
                 ) : (
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      {filteredPosts.map((post) => (
+                      {filteredPosts.slice(0, 3).map((post) => (
+                        <BlogCard key={post.id} post={post} />
+                      ))}
+                    </div>
+                    
+                    {/* Middle Advertisement Banner */}
+                    {filteredPosts.length > 3 && (
+                      <div className="my-8">
+                        <AdBanner variant="inline" />
+                      </div>
+                    )}
+                    
+                    {/* Remaining Posts */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
+                      {filteredPosts.slice(3).map((post) => (
                         <BlogCard key={post.id} post={post} />
                       ))}
                     </div>
