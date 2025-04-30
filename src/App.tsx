@@ -15,6 +15,7 @@ import Dashboard from "./pages/admin/Dashboard";
 import ManagePosts from "./pages/admin/ManagePosts";
 import NewPost from "./pages/admin/NewPost";
 import EditPost from "./pages/admin/EditPost";
+import Advertise from "./pages/Advertise";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/post/:slug" element={<BlogPost />} />
             <Route path="/category/:categoryId" element={<CategoryPage />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/advertise" element={<Advertise />} />
             
             {/* Admin Routes */}
             <Route path="/admin/dashboard" element={<Dashboard />} />

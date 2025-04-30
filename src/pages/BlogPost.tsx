@@ -7,6 +7,7 @@ import { MainLayout } from '@/components/Layout/MainLayout';
 import { BlogCard } from '@/components/BlogPost/BlogCard';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { AdBanner } from '@/components/Advertisement/AdBanner';
 import ReactMarkdown from 'react-markdown';
 
 const BlogPost = () => {
@@ -115,8 +116,17 @@ const BlogPost = () => {
             />
           </div>
           
+          {/* First part of content */}
           <div className="blog-content prose prose-lg prose-headings:text-foreground prose-a:text-shield">
-            <ReactMarkdown>{post.content}</ReactMarkdown>
+            <ReactMarkdown>{post.content.slice(0, post.content.length / 2)}</ReactMarkdown>
+          </div>
+          
+          {/* Advertisement Banner */}
+          <AdBanner variant="inline" />
+          
+          {/* Second part of content */}
+          <div className="blog-content prose prose-lg prose-headings:text-foreground prose-a:text-shield">
+            <ReactMarkdown>{post.content.slice(post.content.length / 2)}</ReactMarkdown>
           </div>
           
           <div className="mt-12">

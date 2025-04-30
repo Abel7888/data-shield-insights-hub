@@ -141,28 +141,44 @@
   @apply text-sm;
 }
 
-/* Fix for grey bullets in article content */
+/* Fix for double bullets in article content */
+.blog-content ul {
+  list-style-type: none; /* Remove default bullets */
+}
+
+.blog-content ul > li {
+  position: relative;
+  padding-left: 1.5em;
+}
+
 .blog-content ul > li::before {
-  @apply bg-shield-dark dark:bg-shield-light;
   content: "";
   position: absolute;
+  left: 0;
+  top: 0.6em;
   width: 0.375em;
   height: 0.375em;
+  background-color: currentColor;
+  @apply bg-shield-dark dark:bg-shield-light;
   border-radius: 50%;
-  margin-top: 0.6em;
-  margin-left: -1.4em;
-  opacity: 1;
+}
+
+.blog-content ol {
+  list-style-type: none;
+  counter-reset: item;
+}
+
+.blog-content ol > li {
+  position: relative;
+  padding-left: 1.5em;
+  counter-increment: item;
 }
 
 .blog-content ol > li::before {
-  @apply text-shield-dark dark:text-shield-light font-medium;
-  content: counter(list-item) ".";
+  content: counter(item) ".";
   position: absolute;
-  margin-left: -1.4em;
-}
-
-.blog-content ul li, .blog-content ol li {
-  @apply relative pl-0;
+  left: 0;
+  @apply text-shield-dark dark:text-shield-light font-medium;
 }
 
 /* Fix image loading performance */
@@ -188,3 +204,13 @@ img {
     scrollbar-gutter: stable;
   }
 }
+
+/* Advertisement styles */
+.ad-container {
+  @apply bg-gradient-to-r from-shield/10 to-shield-secondary/10 rounded-lg p-4 my-8 border border-shield/20;
+}
+
+.ad-badge {
+  @apply bg-shield text-white text-xs font-semibold px-2 py-0.5 rounded-full mb-2 inline-block;
+}
+
