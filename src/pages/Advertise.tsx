@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Ad, DollarSign } from 'lucide-react';
+import { Megaphone, DollarSign } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 
 export default function Advertise() {
@@ -49,7 +49,7 @@ export default function Advertise() {
         <div className="container py-12 md:py-20">
           <div className="max-w-3xl mx-auto text-center">
             <div className="inline-flex items-center gap-2 mb-6">
-              <Ad className="h-5 w-5 text-shield" />
+              <Megaphone className="h-5 w-5 text-shield" />
               <h1 className="text-2xl md:text-3xl font-bold">Advertise with Data Shield Blogs</h1>
             </div>
             
