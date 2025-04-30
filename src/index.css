@@ -126,3 +126,27 @@
 .blog-content li {
   @apply mb-2;
 }
+
+/* Fix for grey bullets in article content */
+.blog-content ul > li::before {
+  @apply bg-shield-dark dark:bg-shield-light;
+  content: "";
+  position: absolute;
+  width: 0.375em;
+  height: 0.375em;
+  border-radius: 50%;
+  margin-top: 0.6em;
+  margin-left: -1.4em;
+  opacity: 1;
+}
+
+.blog-content ol > li::before {
+  @apply text-shield-dark dark:text-shield-light font-medium;
+  content: counter(list-item) ".";
+  position: absolute;
+  margin-left: -1.4em;
+}
+
+.blog-content ul li, .blog-content ol li {
+  @apply relative pl-0;
+}
