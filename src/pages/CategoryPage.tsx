@@ -5,7 +5,7 @@ import { getBlogPostsByCategory } from '@/lib/storage';
 import { BlogPost, categoryLabels, BlogCategory } from '@/lib/types';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { BlogCard } from '@/components/BlogPost/BlogCard';
-import { Shield } from 'lucide-react';
+import { Shield, Loader2 } from 'lucide-react';
 
 const CategoryPage = () => {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -14,20 +14,28 @@ const CategoryPage = () => {
   const [isValidCategory, setIsValidCategory] = useState(true);
 
   useEffect(() => {
-    if (categoryId) {
-      setIsLoading(true);
-      
-      if (Object.keys(categoryLabels).includes(categoryId)) {
-        const categoryPosts = getBlogPostsByCategory(categoryId as BlogCategory);
-        setPosts(categoryPosts);
-        setIsValidCategory(true);
-        document.title = `${categoryLabels[categoryId as BlogCategory]} | Data Shield Blogs`;
-      } else {
-        setIsValidCategory(false);
+    const fetchPosts = async () => {
+      if (categoryId) {
+        setIsLoading(true);
+        
+        if (Object.keys(categoryLabels).includes(categoryId)) {
+          try {
+            const categoryPosts = await getBlogPostsByCategory(categoryId as BlogCategory);
+            setPosts(categoryPosts);
+            setIsValidCategory(true);
+            document.title = `${categoryLabels[categoryId as BlogCategory]} | Data Shield Blogs`;
+          } catch (error) {
+            console.error('Error fetching posts by category:', error);
+          }
+        } else {
+          setIsValidCategory(false);
+        }
+        
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
-    }
+    };
+    
+    fetchPosts();
   }, [categoryId]);
   
   // Helper function to get category descriptions
@@ -64,7 +72,7 @@ const CategoryPage = () => {
     return (
       <MainLayout>
         <div className="container py-16 flex justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <Loader2 className="h-10 w-10 animate-spin text-shield" />
         </div>
       </MainLayout>
     );

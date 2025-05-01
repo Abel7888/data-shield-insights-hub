@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AdBanner } from '@/components/Advertisement/AdBanner';
 import ReactMarkdown from 'react-markdown';
+import { Loader2 } from 'lucide-react';
 
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -18,32 +19,42 @@ const BlogPost = () => {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (slug) {
-      setIsLoading(true);
-      const foundPost = getBlogPostBySlug(slug);
-      
-      if (foundPost) {
-        setPost(foundPost);
-        document.title = `${foundPost.title} | Data Shield Blogs`;
-        
-        // Get related posts from the same category (excluding current post)
-        const recent = getRecentBlogPosts(10)
-          .filter(p => p.category === foundPost.category && p.id !== foundPost.id)
-          .slice(0, 3);
-        setRelatedPosts(recent);
-      } else {
-        setNotFound(true);
+    const fetchPost = async () => {
+      if (slug) {
+        setIsLoading(true);
+        try {
+          const foundPost = await getBlogPostBySlug(slug);
+          
+          if (foundPost) {
+            setPost(foundPost);
+            document.title = `${foundPost.title} | Data Shield Blogs`;
+            
+            // Get related posts from the same category (excluding current post)
+            const recent = await getRecentBlogPosts(10);
+            const related = recent
+              .filter(p => p.category === foundPost.category && p.id !== foundPost.id)
+              .slice(0, 3);
+            setRelatedPosts(related);
+          } else {
+            setNotFound(true);
+          }
+        } catch (error) {
+          console.error('Error fetching post:', error);
+          setNotFound(true);
+        } finally {
+          setIsLoading(false);
+        }
       }
-      
-      setIsLoading(false);
-    }
+    };
+    
+    fetchPost();
   }, [slug]);
 
   if (isLoading) {
     return (
       <MainLayout>
         <div className="container py-16 flex justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <Loader2 className="h-8 w-8 animate-spin text-shield" />
         </div>
       </MainLayout>
     );

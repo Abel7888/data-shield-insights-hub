@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 interface BlogPostFormProps {
   post?: BlogPost;
@@ -67,7 +68,7 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
         featured,
       };
 
-      const savedPost = saveBlogPost(blogPost);
+      const savedPost = await saveBlogPost(blogPost);
       
       toast({
         title: post ? 'Post Updated' : 'Post Created',
@@ -181,7 +182,12 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
 
       <div className="flex gap-4">
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving...' : post ? 'Update Post' : 'Publish Post'}
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {post ? 'Updating...' : 'Publishing...'}
+            </>
+          ) : post ? 'Update Post' : 'Publish Post'}
         </Button>
         <Button
           type="button"

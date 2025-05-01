@@ -5,7 +5,7 @@ import { BlogCard } from '@/components/BlogPost/BlogCard';
 import { getRecentBlogPosts } from '@/lib/storage';
 import { BlogPost, categoryLabels, BlogCategory } from '@/lib/types';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield } from 'lucide-react';
+import { Shield, Loader2 } from 'lucide-react';
 import { AdBanner } from '@/components/Advertisement/AdBanner';
 
 const Index = () => {
@@ -15,11 +15,20 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    // Get more posts since we don't have featured posts now
-    const posts = getRecentBlogPosts(24);
-    setRecentPosts(posts);
-    setIsLoading(false);
+    const fetchPosts = async () => {
+      setIsLoading(true);
+      try {
+        // Get more posts since we don't have featured posts now
+        const posts = await getRecentBlogPosts(24);
+        setRecentPosts(posts);
+      } catch (error) {
+        console.error('Error fetching recent posts:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchPosts();
   }, []);
 
   useEffect(() => {
@@ -76,7 +85,7 @@ const Index = () => {
             <TabsContent value="all" className="m-0">
               {isLoading ? (
                 <div className="text-center py-12">
-                  <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                  <Loader2 className="h-10 w-10 mx-auto animate-spin text-shield" />
                 </div>
               ) : (
                 <>
@@ -113,7 +122,7 @@ const Index = () => {
               <TabsContent key={key} value={key} className="m-0">
                 {isLoading ? (
                   <div className="text-center py-12">
-                    <div className="h-10 w-10 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                    <Loader2 className="h-10 w-10 mx-auto animate-spin text-shield" />
                   </div>
                 ) : (
                   <>
