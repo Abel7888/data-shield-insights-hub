@@ -5,7 +5,7 @@ import { AdminLayout } from '@/components/Layout/AdminLayout';
 import { BlogPostForm } from '@/components/Admin/BlogPostForm';
 import { getBlogPostById } from '@/lib/storage';
 import { BlogPost } from '@/lib/types';
-import { FileText } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdBanner } from '@/components/Advertisement/AdBanner';
 
@@ -16,22 +16,36 @@ const EditPost = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
-      const foundPost = getBlogPostById(id);
-      if (foundPost) {
-        setPost(foundPost);
-      } else {
+    const fetchPost = async () => {
+      if (!id) {
         setNotFound(true);
+        setIsLoading(false);
+        return;
       }
-      setIsLoading(false);
-    }
+
+      try {
+        const foundPost = await getBlogPostById(id);
+        if (foundPost) {
+          setPost(foundPost);
+        } else {
+          setNotFound(true);
+        }
+      } catch (error) {
+        console.error('Error fetching post:', error);
+        setNotFound(true);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPost();
   }, [id]);
 
   if (isLoading) {
     return (
       <AdminLayout>
         <div className="flex justify-center py-12">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <Loader2 className="h-10 w-10 animate-spin text-primary" />
         </div>
       </AdminLayout>
     );

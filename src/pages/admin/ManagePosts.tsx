@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 const ManagePosts = () => {
   const { toast } = useToast();
@@ -34,16 +35,30 @@ const ManagePosts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load posts when component mounts
   useEffect(() => {
     loadPosts();
   }, []);
 
-  const loadPosts = () => {
-    const allPosts = getBlogPosts();
-    setPosts(allPosts);
-    setFilteredPosts(allPosts);
+  const loadPosts = async () => {
+    try {
+      setIsLoading(true);
+      const allPosts = await getBlogPosts();
+      setPosts(allPosts);
+      setFilteredPosts(allPosts);
+    } catch (error) {
+      console.error('Error loading posts:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load posts. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Filter posts when search term changes
@@ -68,27 +83,40 @@ const ManagePosts = () => {
     setDeleteConfirmOpen(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (postToDelete) {
-      if (deleteBlogPost(postToDelete.id)) {
-        toast({
-          title: 'Post Deleted',
-          description: `"${postToDelete.title}" has been permanently deleted.`,
-        });
+      try {
+        setIsDeleting(true);
+        const success = await deleteBlogPost(postToDelete.id);
         
-        // Update state to reflect deletion by reloading posts from storage
-        loadPosts();
-      } else {
+        if (success) {
+          toast({
+            title: 'Post Deleted',
+            description: `"${postToDelete.title}" has been permanently deleted.`,
+          });
+          
+          // Update state to reflect deletion by reloading posts from storage
+          await loadPosts();
+        } else {
+          toast({
+            title: 'Error',
+            description: 'There was an error deleting the post.',
+            variant: 'destructive',
+          });
+        }
+      } catch (error) {
+        console.error('Error deleting post:', error);
         toast({
           title: 'Error',
-          description: 'There was an error deleting the post.',
+          description: 'Failed to delete post. Please try again.',
           variant: 'destructive',
         });
+      } finally {
+        setIsDeleting(false);
+        setDeleteConfirmOpen(false);
+        setPostToDelete(null);
       }
     }
-    
-    setDeleteConfirmOpen(false);
-    setPostToDelete(null);
   };
 
   const formatDate = (dateString: string) => {
@@ -129,7 +157,15 @@ const ManagePosts = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredPosts.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  <div className="flex justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : filteredPosts.length > 0 ? (
               filteredPosts.map((post) => (
                 <TableRow key={post.id}>
                   <TableCell>
@@ -197,8 +233,20 @@ const ManagePosts = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

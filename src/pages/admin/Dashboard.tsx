@@ -5,7 +5,7 @@ import { AdminLayout } from '@/components/Layout/AdminLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getBlogPosts } from '@/lib/storage';
-import { BlogCategory, categoryLabels } from '@/lib/types';
+import { BlogCategory, BlogPost, categoryLabels } from '@/lib/types';
 
 const Dashboard = () => {
   const [postStats, setPostStats] = useState({
@@ -13,26 +13,38 @@ const Dashboard = () => {
     byCategory: {} as Record<BlogCategory, number>,
     featured: 0
   });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const posts = getBlogPosts();
-    const byCategory = {} as Record<BlogCategory, number>;
+    const fetchPosts = async () => {
+      try {
+        setIsLoading(true);
+        const posts = await getBlogPosts();
+        const byCategory = {} as Record<BlogCategory, number>;
+        
+        // Initialize all categories with zero
+        Object.keys(categoryLabels).forEach(key => {
+          byCategory[key as BlogCategory] = 0;
+        });
+        
+        // Count posts by category
+        posts.forEach(post => {
+          byCategory[post.category]++;
+        });
+        
+        setPostStats({
+          total: posts.length,
+          byCategory,
+          featured: posts.filter(post => post.featured).length
+        });
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    // Initialize all categories with zero
-    Object.keys(categoryLabels).forEach(key => {
-      byCategory[key as BlogCategory] = 0;
-    });
-    
-    // Count posts by category
-    posts.forEach(post => {
-      byCategory[post.category]++;
-    });
-    
-    setPostStats({
-      total: posts.length,
-      byCategory,
-      featured: posts.filter(post => post.featured).length
-    });
+    fetchPosts();
   }, []);
 
   return (
@@ -43,7 +55,11 @@ const Dashboard = () => {
             <CardTitle className="text-sm font-medium">Total Posts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{postStats.total}</div>
+            {isLoading ? (
+              <div className="h-6 w-16 bg-muted animate-pulse rounded"></div>
+            ) : (
+              <div className="text-2xl font-bold">{postStats.total}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               All published articles
             </p>
@@ -55,7 +71,11 @@ const Dashboard = () => {
             <CardTitle className="text-sm font-medium">Featured Posts</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{postStats.featured}</div>
+            {isLoading ? (
+              <div className="h-6 w-16 bg-muted animate-pulse rounded"></div>
+            ) : (
+              <div className="text-2xl font-bold">{postStats.featured}</div>
+            )}
             <p className="text-xs text-muted-foreground">
               Articles featured on homepage
             </p>
@@ -96,24 +116,38 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {Object.entries(postStats.byCategory).map(([category, count]) => (
-                <div key={category} className="flex items-center">
-                  <div className="w-40">{categoryLabels[category as BlogCategory]}</div>
-                  <div className="flex-1">
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary" 
-                        style={{ 
-                          width: `${postStats.total > 0 ? (count / postStats.total) * 100 : 0}%` 
-                        }}
-                      />
+            {isLoading ? (
+              <div className="space-y-4">
+                {Object.keys(categoryLabels).map((category) => (
+                  <div key={category} className="flex items-center">
+                    <div className="w-40">{categoryLabels[category as BlogCategory]}</div>
+                    <div className="flex-1">
+                      <div className="h-2 bg-muted rounded-full"></div>
                     </div>
+                    <div className="w-10 text-right">0</div>
                   </div>
-                  <div className="w-10 text-right">{count}</div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {Object.entries(postStats.byCategory).map(([category, count]) => (
+                  <div key={category} className="flex items-center">
+                    <div className="w-40">{categoryLabels[category as BlogCategory]}</div>
+                    <div className="flex-1">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-primary" 
+                          style={{ 
+                            width: `${postStats.total > 0 ? (count / postStats.total) * 100 : 0}%` 
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <div className="w-10 text-right">{count}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
