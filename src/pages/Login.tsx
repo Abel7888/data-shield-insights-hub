@@ -16,22 +16,39 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!username || !password) return;
+    if (!username || !password) {
+      setErrorMessage('Please enter both username and password');
+      return;
+    }
     
     setIsSubmitting(true);
-    const success = await login(username, password);
-    setIsSubmitting(false);
+    setErrorMessage('');
     
-    if (success) {
-      navigate('/admin/dashboard');
+    try {
+      console.log('Submitting login form with username:', username);
+      const success = await login(username, password);
+      
+      if (success) {
+        console.log('Login successful, redirecting to dashboard');
+        navigate('/admin/dashboard');
+      } else {
+        setErrorMessage('Invalid username or password');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setErrorMessage('An error occurred during login');
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
   // Redirect if already authenticated
   if (isAuthenticated) {
+    console.log('User is already authenticated, redirecting to dashboard');
     return <Navigate to="/admin/dashboard" replace />;
   }
   
@@ -55,6 +72,11 @@ const Login = () => {
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {errorMessage && (
+                  <div className="p-3 rounded bg-destructive/15 text-destructive text-sm">
+                    {errorMessage}
+                  </div>
+                )}
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
                   <Input

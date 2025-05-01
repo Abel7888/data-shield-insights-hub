@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, User, BlogCategory } from './types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost, mapSupabaseToUser, mapUserToSupabase } from './supabaseTypes';
@@ -184,17 +183,24 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 };
 
 export const getUserByUsername = async (username: string): Promise<User | undefined> => {
+  console.log('Fetching user by username:', username);
   const { data: user, error } = await supabase
     .from('users')
     .select('*')
     .eq('username', username.toLowerCase())
-    .single();
+    .maybeSingle();
   
   if (error) {
     console.error('Error fetching user by username:', error);
     return undefined;
   }
   
+  if (!user) {
+    console.log('No user found with username:', username);
+    return undefined;
+  }
+  
+  console.log('User found:', user);
   return mapSupabaseToUser(user);
 };
 
@@ -224,21 +230,36 @@ export const saveUser = async (user: User): Promise<User> => {
 
 // Authentication
 export const setAuthToken = (userId: string): void => {
+  console.log('Setting auth token for user:', userId);
   localStorage.setItem('data-shield-auth-token', userId);
 };
 
 export const getAuthToken = (): string | null => {
-  return localStorage.getItem('data-shield-auth-token');
+  const token = localStorage.getItem('data-shield-auth-token');
+  console.log('Retrieved auth token:', token);
+  return token;
 };
 
 export const removeAuthToken = (): void => {
+  console.log('Removing auth token');
   localStorage.removeItem('data-shield-auth-token');
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
   const token = getAuthToken();
-  if (!token) return null;
+  if (!token) {
+    console.log('No auth token found, user is not authenticated');
+    return null;
+  }
   
+  console.log('Fetching current user with token:', token);
   const user = await getUserById(token);
-  return user || null;
+  if (!user) {
+    console.log('No user found for token, removing invalid token');
+    removeAuthToken();
+    return null;
+  }
+  
+  console.log('Current user:', user);
+  return user;
 };

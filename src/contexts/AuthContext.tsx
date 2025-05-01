@@ -38,9 +38,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
+      console.log('Attempting to login with username:', username);
       const foundUser = await getUserByUsername(username);
       
       if (foundUser && foundUser.password === password) {
+        console.log('Login successful for user:', foundUser);
         setUser(foundUser);
         setAuthToken(foundUser.id);
         toast({
@@ -50,6 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return true;
       }
       
+      console.log('Login failed: Invalid credentials');
       toast({
         title: "Login failed",
         description: "Invalid username or password.",
