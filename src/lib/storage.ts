@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, User, BlogCategory } from './types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost, mapSupabaseToUser, mapUserToSupabase } from './supabaseTypes';
@@ -105,39 +104,66 @@ export const getFeaturedBlogPosts = async (): Promise<BlogPost[]> => {
 };
 
 export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
-  // If it's a new post (no ID), generate an ID and slug
-  if (!post.id) {
-    post.slug = generateSlug(post.title);
-    post.publishedDate = new Date().toISOString();
-  } else {
-    // Find existing post to check if title changed
-    const existingPost = await getBlogPostById(post.id);
-    if (existingPost && existingPost.title !== post.title) {
-      post.slug = generateSlug(post.title);
-    }
-  }
-
-  const supabasePost = mapBlogPostToSupabase(post);
+  console.log('Saving blog post:', post);
   
-  const { data, error } = post.id
-    ? await supabase
+  try {
+    // If it's a new post (no ID), generate an ID and slug
+    if (!post.id) {
+      console.log('Creating new post');
+      post.slug = generateSlug(post.title);
+      post.publishedDate = new Date().toISOString();
+      post.id = generateId();
+    } else {
+      console.log('Updating existing post:', post.id);
+      // Find existing post to check if title changed
+      const existingPost = await getBlogPostById(post.id);
+      if (existingPost && existingPost.title !== post.title) {
+        post.slug = generateSlug(post.title);
+      }
+    }
+
+    const supabasePost = mapBlogPostToSupabase(post);
+    console.log('Mapped post for Supabase:', supabasePost);
+    
+    let result;
+    if (post.id) {
+      // Update existing post
+      const { data, error } = await supabase
         .from('blog_posts')
         .update(supabasePost)
         .eq('id', post.id)
         .select('*')
-        .single()
-    : await supabase
+        .single();
+      
+      if (error) {
+        console.error('Error updating blog post in Supabase:', error);
+        throw new Error(`Failed to save blog post: ${error.message}`);
+      }
+      
+      result = data;
+      console.log('Post updated successfully:', data);
+    } else {
+      // Insert new post
+      const { data, error } = await supabase
         .from('blog_posts')
         .insert(supabasePost)
         .select('*')
         .single();
-  
-  if (error) {
-    console.error('Error saving blog post:', error);
-    throw new Error(`Failed to save blog post: ${error.message}`);
+      
+      if (error) {
+        console.error('Error inserting blog post in Supabase:', error);
+        throw new Error(`Failed to save blog post: ${error.message}`);
+      }
+      
+      result = data;
+      console.log('Post created successfully:', data);
+    }
+    
+    return mapSupabaseToBlogPost(result);
+  } catch (error) {
+    console.error('Error in saveBlogPost function:', error);
+    throw error;
   }
-  
-  return mapSupabaseToBlogPost(data);
 };
 
 export const deleteBlogPost = async (id: string): Promise<boolean> => {
