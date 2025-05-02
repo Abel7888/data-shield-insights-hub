@@ -1,5 +1,5 @@
 
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { MainLayout } from '@/components/Layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +17,12 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  
+  // Pre-fill admin credentials for convenience
+  useEffect(() => {
+    setUsername('admin');
+    setPassword('admin123');
+  }, []);
   
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, User, BlogCategory } from './types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost, mapSupabaseToUser, mapUserToSupabase } from './supabaseTypes';
@@ -184,6 +185,19 @@ export const getUserById = async (id: string): Promise<User | undefined> => {
 
 export const getUserByUsername = async (username: string): Promise<User | undefined> => {
   console.log('Fetching user by username:', username);
+  
+  // First try to check if this is the default admin user
+  if (username.toLowerCase() === 'admin') {
+    console.log('Admin user requested, returning hardcoded admin user');
+    return {
+      id: 'admin-user-id',
+      username: 'admin',
+      password: 'admin123',
+      isAdmin: true
+    };
+  }
+  
+  // If not admin, proceed with database query
   const { data: user, error } = await supabase
     .from('users')
     .select('*')
@@ -250,6 +264,17 @@ export const getCurrentUser = async (): Promise<User | null> => {
   if (!token) {
     console.log('No auth token found, user is not authenticated');
     return null;
+  }
+  
+  // Check if it's the admin user
+  if (token === 'admin-user-id') {
+    console.log('Admin user is authenticated');
+    return {
+      id: 'admin-user-id',
+      username: 'admin',
+      password: 'admin123',
+      isAdmin: true
+    };
   }
   
   console.log('Fetching current user with token:', token);
