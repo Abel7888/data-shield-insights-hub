@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, User, BlogCategory } from './types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost, mapSupabaseToUser, mapUserToSupabase } from './supabaseTypes';
@@ -108,7 +107,7 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
   console.log('Saving blog post:', post);
   
   try {
-    // Prepare the post object
+    // Prepare post data
     const isNewPost = !post.id || post.id === '';
     
     if (isNewPost) {
@@ -125,61 +124,58 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
       }
     }
 
-    const supabasePost = mapBlogPostToSupabase(post);
-    console.log('Mapped post for Supabase:', supabasePost);
+    // Explicitly create the data object to match Supabase schema
+    const postData = {
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      content: post.content,
+      cover_image: post.coverImage,
+      category: post.category,
+      published_date: post.publishedDate,
+      author: post.author,
+      featured: post.featured || false
+    };
     
-    // Always insert a new row to avoid RLS issues
+    console.log('Sending to Supabase:', postData);
+    
+    let result;
+    
     if (isNewPost) {
+      // Insert new post using upsert to avoid conflicts
       const { data, error } = await supabase
         .from('blog_posts')
-        .insert({
-          id: post.id,
-          title: post.title,
-          slug: post.slug,
-          excerpt: post.excerpt,
-          content: post.content,
-          cover_image: post.coverImage,
-          category: post.category,
-          published_date: post.publishedDate,
-          author: post.author,
-          featured: post.featured
-        })
+        .upsert(postData)
         .select('*')
         .single();
       
       if (error) {
-        console.error('Error inserting blog post in Supabase:', error);
+        console.error('Error creating blog post:', error);
         throw new Error(`Failed to save blog post: ${error.message}`);
       }
       
+      result = data;
       console.log('Post created successfully:', data);
-      return mapSupabaseToBlogPost(data);
     } else {
       // Update existing post
       const { data, error } = await supabase
         .from('blog_posts')
-        .update({
-          title: post.title,
-          slug: post.slug,
-          excerpt: post.excerpt,
-          content: post.content,
-          cover_image: post.coverImage,
-          category: post.category,
-          author: post.author,
-          featured: post.featured
-        })
+        .update(postData)
         .eq('id', post.id)
         .select('*')
         .single();
       
       if (error) {
-        console.error('Error updating blog post in Supabase:', error);
+        console.error('Error updating blog post:', error);
         throw new Error(`Failed to save blog post: ${error.message}`);
       }
       
+      result = data;
       console.log('Post updated successfully:', data);
-      return mapSupabaseToBlogPost(data);
     }
+    
+    return mapSupabaseToBlogPost(result);
   } catch (error) {
     console.error('Error in saveBlogPost function:', error);
     throw error;
