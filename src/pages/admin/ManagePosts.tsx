@@ -26,7 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCcw } from 'lucide-react';
 
 const ManagePosts = () => {
   const { toast } = useToast();
@@ -37,6 +37,7 @@ const ManagePosts = () => {
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load posts when component mounts
   useEffect(() => {
@@ -61,6 +62,16 @@ const ManagePosts = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadPosts();
+    setIsRefreshing(false);
+    toast({
+      title: 'Posts Refreshed',
+      description: 'The posts list has been refreshed.',
+    });
   };
 
   // Filter posts when search term changes
@@ -135,9 +146,19 @@ const ManagePosts = () => {
     <AdminLayout>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-xl font-bold">Manage Posts</h2>
-        <Button asChild>
-          <Link to="/admin/new-post">Create New Post</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
+            {isRefreshing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCcw className="h-4 w-4" />
+            )}
+            <span className="ml-2">Refresh</span>
+          </Button>
+          <Button asChild>
+            <Link to="/admin/new-post">Create New Post</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="mb-6">

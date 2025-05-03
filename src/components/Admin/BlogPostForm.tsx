@@ -1,5 +1,5 @@
 
-import { useState, ChangeEvent, FormEvent } from 'react';
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BlogPost, BlogCategory, categoryLabels } from '@/lib/types';
 import { saveBlogPost } from '@/lib/storage';
@@ -36,10 +36,21 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   const [featured, setFeatured] = useState(post?.featured || false);
   const [imagePreview, setImagePreview] = useState<string | null>(post?.coverImage || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // File size validation (2MB limit)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "Image file size exceeds 2MB limit",
+        variant: "destructive"
+      });
+      return;
+    }
 
     // For local file preview
     const reader = new FileReader();
@@ -50,11 +61,45 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     reader.readAsDataURL(file);
   };
 
+  const validateForm = (): boolean => {
+    if (!title.trim()) {
+      setFormError("Title is required");
+      return false;
+    }
+    if (!excerpt.trim()) {
+      setFormError("Excerpt is required");
+      return false;
+    }
+    if (!content.trim()) {
+      setFormError("Content is required");
+      return false;
+    }
+    if (!coverImage) {
+      setFormError("Cover image is required");
+      return false;
+    }
+    
+    setFormError(null);
+    return true;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    
+    if (!validateForm()) {
+      toast({
+        title: "Validation Error",
+        description: formError || "Please fill out all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
+      console.log("Creating blog post with data:", { title, excerpt, category, featured });
+      
       const blogPost: BlogPost = {
         id: post?.id || '',
         title,
@@ -69,6 +114,7 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
       };
 
       const savedPost = await saveBlogPost(blogPost);
+      console.log("Post saved successfully:", savedPost);
       
       toast({
         title: post ? 'Post Updated' : 'Post Created',
@@ -78,9 +124,10 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
       navigate('/admin/posts');
     } catch (error) {
       console.error('Error saving blog post:', error);
+      
       toast({
         title: 'Error',
-        description: 'There was an error saving your post. Please try again.',
+        description: `${error instanceof Error ? error.message : 'There was an error saving your post. Please try again.'}`,
         variant: 'destructive',
       });
     } finally {
@@ -90,6 +137,12 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {formError && (
+        <div className="p-3 text-sm font-medium text-white bg-destructive rounded-md">
+          {formError}
+        </div>
+      )}
+      
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="title">Title</Label>

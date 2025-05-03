@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/lib/types';
-import { getUserByUsername, setAuthToken, removeAuthToken, getCurrentUser } from '@/lib/storage';
+import { getUserByUsername } from '@/lib/services/userService';
+import { setAuthToken, removeAuthToken, getCurrentUser } from '@/lib/services/authService';
 import { useToast } from '@/hooks/use-toast';
 
 interface AuthContextType {
