@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Select,
   SelectContent,
@@ -37,6 +38,23 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(post?.coverImage || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !user) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to create or edit posts.",
+          variant: "destructive"
+        });
+        navigate('/login');
+      }
+    };
+    
+    checkAuth();
+  }, [user, navigate, toast]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

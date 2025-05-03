@@ -66,7 +66,7 @@ export const getBlogPostById = async (id: string): Promise<BlogPost | undefined>
       .from('blog_posts')
       .select('*')
       .eq('id', id)
-      .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no rows are returned
+      .maybeSingle();
     
     if (error) {
       console.error('Error fetching blog post by id:', error);
@@ -154,6 +154,13 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
   console.log('Saving blog post:', post.title);
   
   try {
+    // Ensure user is authenticated before saving
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No active session found, user not authenticated');
+      throw new Error('User not authenticated. Please login before saving posts.');
+    }
+
     // Prepare post data
     const isNewPost = !post.id || post.id === '';
     
@@ -179,7 +186,7 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
     let result;
     
     if (isNewPost) {
-      // For new posts, use insert instead of upsert to avoid conflicts
+      // For new posts, use insert
       const { data, error } = await supabase
         .from('blog_posts')
         .insert(postData)
@@ -222,6 +229,13 @@ export const deleteBlogPost = async (id: string): Promise<boolean> => {
   console.log('Deleting blog post with ID:', id);
   
   try {
+    // Ensure user is authenticated before deleting
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No active session found, user not authenticated');
+      throw new Error('User not authenticated. Please login before deleting posts.');
+    }
+
     const { error } = await supabase
       .from('blog_posts')
       .delete()
