@@ -154,11 +154,21 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
   console.log('Saving blog post:', post.title);
   
   try {
-    // Ensure user is authenticated before saving
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get current session directly without additional checks
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    
     if (!session) {
-      console.error('No active session found, user not authenticated');
-      throw new Error('User not authenticated. Please login before saving posts.');
+      // Also check for legacy token authentication
+      const token = localStorage.getItem('data-shield-auth-token');
+      if (!token) {
+        console.error('No active session found, user not authenticated');
+        throw new Error('User not authenticated. Please login before saving posts.');
+      }
+      console.log('Using legacy token authentication');
+      // Continue with token-based authentication
+    } else {
+      console.log('Using Supabase session authentication');
     }
 
     // Prepare post data
@@ -229,11 +239,21 @@ export const deleteBlogPost = async (id: string): Promise<boolean> => {
   console.log('Deleting blog post with ID:', id);
   
   try {
-    // Ensure user is authenticated before deleting
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get current session directly without additional checks
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    
     if (!session) {
-      console.error('No active session found, user not authenticated');
-      throw new Error('User not authenticated. Please login before deleting posts.');
+      // Also check for legacy token authentication
+      const token = localStorage.getItem('data-shield-auth-token');
+      if (!token) {
+        console.error('No active session found, user not authenticated');
+        throw new Error('User not authenticated. Please login before deleting posts.');
+      }
+      console.log('Using legacy token authentication');
+      // Continue with token-based authentication
+    } else {
+      console.log('Using Supabase session authentication');
     }
 
     const { error } = await supabase

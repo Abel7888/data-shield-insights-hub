@@ -2,7 +2,7 @@
 import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BlogPost, BlogCategory, categoryLabels } from '@/lib/types';
-import { saveBlogPost } from '@/lib/storage';
+import { saveBlogPost } from '@/lib/services/blogService';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,14 +42,27 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   // Check authentication status on mount
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !user) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // If no Supabase session, check for token-based auth
+        if (!session && !user) {
+          toast({
+            title: "Authentication required",
+            description: "Please log in to create or edit posts.",
+            variant: "destructive"
+          });
+          navigate('/login');
+        } else {
+          console.log("User is authenticated:", user?.username || session?.user.email);
+        }
+      } catch (error) {
+        console.error("Error checking authentication:", error);
         toast({
-          title: "Authentication required",
-          description: "Please log in to create or edit posts.",
+          title: "Authentication error",
+          description: "There was an error verifying your authentication status.",
           variant: "destructive"
         });
-        navigate('/login');
       }
     };
     
@@ -116,6 +129,12 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     setIsSubmitting(true);
 
     try {
+      // Verify authentication status before saving
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !user) {
+        throw new Error("User is not authenticated. Please login before saving.");
+      }
+      
       console.log("Creating blog post with data:", { title, excerpt, category, featured });
       
       const blogPost: BlogPost = {
