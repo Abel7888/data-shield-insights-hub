@@ -124,7 +124,7 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
       }
     }
 
-    // Explicitly create the data object to match Supabase schema
+    // Ensure data matches the Supabase schema exactly
     const postData = {
       id: post.id,
       title: post.title,
@@ -143,10 +143,10 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
     let result;
     
     if (isNewPost) {
-      // Insert new post using upsert to avoid conflicts
+      // For new posts, use insert instead of upsert to avoid conflicts
       const { data, error } = await supabase
         .from('blog_posts')
-        .upsert(postData)
+        .insert(postData)
         .select('*')
         .single();
       
@@ -183,17 +183,25 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
 };
 
 export const deleteBlogPost = async (id: string): Promise<boolean> => {
-  const { error } = await supabase
-    .from('blog_posts')
-    .delete()
-    .eq('id', id);
+  console.log('Deleting blog post with ID:', id);
   
-  if (error) {
-    console.error('Error deleting blog post:', error);
+  try {
+    const { error } = await supabase
+      .from('blog_posts')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error deleting blog post:', error);
+      throw new Error(`Failed to delete blog post: ${error.message}`);
+    }
+    
+    console.log('Blog post deleted successfully');
+    return true;
+  } catch (error) {
+    console.error('Error in deleteBlogPost function:', error);
     return false;
   }
-  
-  return true;
 };
 
 // User Storage

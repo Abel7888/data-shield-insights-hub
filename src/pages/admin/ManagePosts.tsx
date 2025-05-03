@@ -46,7 +46,9 @@ const ManagePosts = () => {
   const loadPosts = async () => {
     try {
       setIsLoading(true);
+      console.log("Fetching posts...");
       const allPosts = await getBlogPosts();
+      console.log("Fetched posts:", allPosts);
       setPosts(allPosts);
       setFilteredPosts(allPosts);
     } catch (error) {
@@ -87,6 +89,7 @@ const ManagePosts = () => {
     if (postToDelete) {
       try {
         setIsDeleting(true);
+        console.log("Deleting post:", postToDelete.id);
         const success = await deleteBlogPost(postToDelete.id);
         
         if (success) {
@@ -95,8 +98,9 @@ const ManagePosts = () => {
             description: `"${postToDelete.title}" has been permanently deleted.`,
           });
           
-          // Update state to reflect deletion by reloading posts from storage
-          await loadPosts();
+          // Update local state to reflect deletion
+          setPosts(prevPosts => prevPosts.filter(post => post.id !== postToDelete.id));
+          setFilteredPosts(prevFilteredPosts => prevFilteredPosts.filter(post => post.id !== postToDelete.id));
         } else {
           toast({
             title: 'Error',
