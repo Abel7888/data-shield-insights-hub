@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ShieldCheck, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Login = () => {
   const { login, isAuthenticated, isLoading } = useAuth();
@@ -22,6 +23,16 @@ const Login = () => {
   useEffect(() => {
     setUsername('admin');
     setPassword('admin123');
+    
+    // Check if we already have a Supabase session
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        console.log("Active Supabase session found:", session.user.id);
+      }
+    };
+    
+    checkSession();
   }, []);
   
   const handleSubmit = async (e: FormEvent) => {

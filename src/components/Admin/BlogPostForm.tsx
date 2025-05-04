@@ -1,12 +1,13 @@
 
-import { useState, ChangeEvent, FormEvent } from 'react';
+import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BlogPost, BlogCategory } from '@/lib/types';
 import { saveBlogPost } from '@/lib/services/blogService';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
-// Import our new components
+// Import our components
 import { FormHeader } from './BlogPost/FormHeader';
 import { TitleExcerptSection } from './BlogPost/TitleExcerptSection';
 import { ContentSection } from './BlogPost/ContentSection';
@@ -34,9 +35,27 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(post?.coverImage || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Check authentication
-  <AuthCheck user={user} />
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session && !user) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to create or edit posts.",
+          variant: "destructive"
+        });
+        navigate('/login');
+      } else {
+        console.log("User authenticated:", user?.username || session?.user.email);
+        setAuthChecked(true);
+      }
+    };
+    
+    checkAuth();
+  }, [user, navigate, toast]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,6 +117,18 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     setIsSubmitting(true);
 
     try {
+      // Check authentication status first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to save blog posts.",
+          variant: "destructive"
+        });
+        navigate('/login');
+        return;
+      }
+      
       console.log("Creating blog post with data:", { title, excerpt, category, featured });
       
       const blogPost: BlogPost = {
@@ -125,15 +156,31 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     } catch (error) {
       console.error('Error saving blog post:', error);
       
+      // Show more detailed error message
+      const errorMessage = error instanceof Error ? error.message : 'There was an error saving your post. Please try again.';
       toast({
         title: 'Error',
-        description: `${error instanceof Error ? error.message : 'There was an error saving your post. Please try again.'}`,
+        description: errorMessage,
         variant: 'destructive',
       });
+      
+      // If it's an authentication error, redirect to login
+      if (errorMessage.includes('not authenticated')) {
+        setTimeout(() => navigate('/login'), 1500);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  if (!authChecked) {
+    // Return loading state while checking auth
+    return (
+      <div className="flex justify-center py-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,10 +12,12 @@ interface AuthCheckProps {
 export const AuthCheck = ({ user }: AuthCheckProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setIsChecking(true);
         const { data: { session } } = await supabase.auth.getSession();
         
         // If no Supabase session, redirect to login
@@ -37,11 +39,14 @@ export const AuthCheck = ({ user }: AuthCheckProps) => {
           description: "There was an error verifying your authentication status.",
           variant: "destructive"
         });
+      } finally {
+        setIsChecking(false);
       }
     };
     
     checkAuth();
   }, [user, navigate, toast]);
 
+  // Return a loading state or null based on the checking state
   return null;
 };

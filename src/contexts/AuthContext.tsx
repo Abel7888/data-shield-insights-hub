@@ -25,10 +25,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initAuth = async () => {
       setIsLoading(true);
       try {
+        console.log("Initializing authentication...");
+        
         // Set up auth state listener FIRST (to prevent missing auth events)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           console.log('Auth state changed:', event);
           if (session) {
+            console.log('Session user data:', session.user);
             setUser({
               id: session.user.id,
               username: session.user.email || 'user',
@@ -36,6 +39,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               isAdmin: true
             });
           } else if (event === 'SIGNED_OUT') {
+            console.log('User signed out');
             setUser(null);
           }
         });
@@ -53,6 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         } else {
           // Fall back to our custom auth
+          console.log('No Supabase session, checking for custom auth');
           const currentUser = await getCurrentUser();
           setUser(currentUser);
         }
@@ -64,6 +69,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     
     initAuth();
+    
+    // Return cleanup function to unsubscribe
+    return () => {
+      supabase.auth.onAuthStateChange(() => {}).data.subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
@@ -89,7 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         if (error) {
-          console.log('Supabase login failed, falling back to custom auth');
+          console.log('Supabase login failed, falling back to custom auth:', error.message);
         }
       }
       
@@ -136,6 +146,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Logged out",
         description: "You have been successfully logged out."
       });
+    }).catch(error => {
+      console.error('Error during logout:', error);
     });
   };
 

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, BlogCategory } from '../types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost } from '../supabaseTypes';
@@ -161,6 +162,7 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
     }
     
     console.log('User is authenticated, proceeding with save operation');
+    console.log('Session user:', session.user.id);
 
     // Prepare post data
     const isNewPost = !post.id || post.id === '';
