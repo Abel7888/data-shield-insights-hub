@@ -78,6 +78,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      get_auth_user_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

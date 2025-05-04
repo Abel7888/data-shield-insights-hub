@@ -25,7 +25,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const initAuth = async () => {
       setIsLoading(true);
       try {
-        // Check for Supabase session first
+        // Set up auth state listener FIRST (to prevent missing auth events)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log('Auth state changed:', event);
+          if (session) {
+            setUser({
+              id: session.user.id,
+              username: session.user.email || 'user',
+              password: '',
+              isAdmin: true
+            });
+          } else if (event === 'SIGNED_OUT') {
+            setUser(null);
+          }
+        });
+        
+        // THEN check for existing session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
@@ -48,27 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
     
-    // Set up auth state listener for Supabase
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed:', event);
-      if (session) {
-        setUser({
-          id: session.user.id,
-          username: session.user.email || 'user',
-          password: '',
-          isAdmin: true
-        });
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-    });
-    
     initAuth();
-    
-    // Clean up subscription
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {

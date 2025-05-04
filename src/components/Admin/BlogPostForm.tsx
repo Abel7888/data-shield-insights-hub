@@ -1,4 +1,3 @@
-
 import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BlogPost, BlogCategory, categoryLabels } from '@/lib/types';
@@ -45,8 +44,9 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         
-        // If no Supabase session, check for token-based auth
+        // If no Supabase session, redirect to login
         if (!session && !user) {
+          console.log("No authentication found, redirecting to login");
           toast({
             title: "Authentication required",
             description: "Please log in to create or edit posts.",
@@ -129,12 +129,6 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Verify authentication status before saving
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !user) {
-        throw new Error("User is not authenticated. Please login before saving.");
-      }
-      
       console.log("Creating blog post with data:", { title, excerpt, category, featured });
       
       const blogPost: BlogPost = {

@@ -35,14 +35,8 @@ export const getCurrentUser = async (): Promise<User | null> => {
       };
     }
   
-    // If no Supabase session, fall back to token-based auth
+    // If no Supabase session, check if admin user is logged in
     const token = getAuthToken();
-    if (!token) {
-      console.log('No auth token found, user is not authenticated');
-      return null;
-    }
-    
-    // Check if it's the admin user
     if (token === 'admin-user-id') {
       console.log('Admin user is authenticated');
       return {
@@ -51,6 +45,12 @@ export const getCurrentUser = async (): Promise<User | null> => {
         password: 'admin123',
         isAdmin: true
       };
+    }
+    
+    // If not admin, fail early
+    if (!token) {
+      console.log('No auth token found, user is not authenticated');
+      return null;
     }
     
     console.log('Fetching current user with token:', token);
