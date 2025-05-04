@@ -7,9 +7,10 @@ import { User } from '@/lib/types';
 
 interface AuthCheckProps {
   user: User | null;
+  onAuthChecked?: (isAuth: boolean) => void;
 }
 
-export const AuthCheck = ({ user }: AuthCheckProps) => {
+export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(true);
@@ -28,9 +29,13 @@ export const AuthCheck = ({ user }: AuthCheckProps) => {
             description: "Please log in to create or edit posts.",
             variant: "destructive"
           });
+          if (onAuthChecked) onAuthChecked(false);
           navigate('/login');
+          return false;
         } else {
           console.log("User is authenticated:", user?.username || session?.user.email);
+          if (onAuthChecked) onAuthChecked(true);
+          return true;
         }
       } catch (error) {
         console.error("Error checking authentication:", error);
@@ -39,13 +44,15 @@ export const AuthCheck = ({ user }: AuthCheckProps) => {
           description: "There was an error verifying your authentication status.",
           variant: "destructive"
         });
+        if (onAuthChecked) onAuthChecked(false);
+        return false;
       } finally {
         setIsChecking(false);
       }
     };
     
     checkAuth();
-  }, [user, navigate, toast]);
+  }, [user, navigate, toast, onAuthChecked]);
 
   // Return a loading state or null based on the checking state
   return null;

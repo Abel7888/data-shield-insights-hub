@@ -23,8 +23,10 @@ export const removeAuthToken = (): void => {
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    // First check for a Supabase session
+    // First check for a Supabase session - refresh the session first
+    await supabase.auth.refreshSession();
     const { data: { session } } = await supabase.auth.getSession();
+    
     if (session) {
       console.log('Found Supabase session, returning user from session');
       return {

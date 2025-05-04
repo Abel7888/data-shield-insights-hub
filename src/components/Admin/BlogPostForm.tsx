@@ -35,26 +35,33 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(post?.coverImage || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Check authentication on component mount
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session && !user) {
-        toast({
-          title: "Authentication required",
-          description: "Please log in to create or edit posts.",
-          variant: "destructive"
-        });
-        navigate('/login');
-      } else {
-        console.log("User authenticated:", user?.username || session?.user.email);
-        setAuthChecked(true);
+    const refreshAuthSession = async () => {
+      try {
+        await supabase.auth.refreshSession();
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session || !!user);
+        
+        if (!session && !user) {
+          toast({
+            title: "Authentication required",
+            description: "Please log in to create or edit posts.",
+            variant: "destructive"
+          });
+          navigate('/login');
+        } else {
+          console.log("User authenticated:", user?.username || session?.user.email);
+        }
+      } catch (error) {
+        console.error("Error refreshing session:", error);
+        setIsAuthenticated(false);
       }
     };
     
-    checkAuth();
+    refreshAuthSession();
   }, [user, navigate, toast]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -117,9 +124,11 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Check authentication status first
+      // Refresh authentication status first
+      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      
+      if (!session && !user) {
         toast({
           title: "Authentication Required",
           description: "Please log in to save blog posts.",
@@ -140,7 +149,7 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
         category,
         coverImage: coverImage || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5',
         publishedDate: post?.publishedDate || new Date().toISOString(),
-        author: post?.author || user?.username || 'Admin',
+        author: post?.author || user?.username || session?.user.email || 'Admin',
         featured,
       };
 
@@ -173,13 +182,9 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     }
   };
 
-  if (!authChecked) {
-    // Return loading state while checking auth
-    return (
-      <div className="flex justify-center py-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-      </div>
-    );
+  if (!isAuthenticated) {
+    // Return AuthCheck which will handle the redirect if needed
+    return <AuthCheck user={user} onAuthChecked={setIsAuthenticated} />;
   }
 
   return (

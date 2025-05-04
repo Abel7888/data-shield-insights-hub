@@ -154,8 +154,10 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
   console.log('Saving blog post:', post.title);
   
   try {
-    // Check for authentication using session
+    // Check for authentication using session - explicitly refresh the session first
+    await supabase.auth.refreshSession();
     const { data: { session } } = await supabase.auth.getSession();
+    
     if (!session) {
       console.error('No active session found, user not authenticated');
       throw new Error('User not authenticated. Please login before saving posts.');
@@ -232,8 +234,10 @@ export const deleteBlogPost = async (id: string): Promise<boolean> => {
   console.log('Deleting blog post with ID:', id);
   
   try {
-    // Check for authentication using session
+    // Check for authentication using session - explicitly refresh the session first
+    await supabase.auth.refreshSession();
     const { data: { session } } = await supabase.auth.getSession();
+    
     if (!session) {
       console.error('No active session found, user not authenticated');
       throw new Error('User not authenticated. Please login before deleting posts.');

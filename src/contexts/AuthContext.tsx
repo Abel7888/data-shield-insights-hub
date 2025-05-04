@@ -5,6 +5,7 @@ import { getUserByUsername } from '@/lib/services/userService';
 import { setAuthToken, removeAuthToken, getCurrentUser } from '@/lib/services/authService';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -18,6 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -28,30 +30,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("Initializing authentication...");
         
         // Set up auth state listener FIRST (to prevent missing auth events)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
           console.log('Auth state changed:', event);
-          if (session) {
-            console.log('Session user data:', session.user);
+          setSession(currentSession);
+          
+          if (currentSession) {
+            console.log('Session user data:', currentSession.user);
             setUser({
-              id: session.user.id,
-              username: session.user.email || 'user',
+              id: currentSession.user.id,
+              username: currentSession.user.email || 'user',
               password: '',
               isAdmin: true
             });
           } else if (event === 'SIGNED_OUT') {
             console.log('User signed out');
             setUser(null);
+            setSession(null);
           }
         });
         
         // THEN check for existing session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session: existingSession } } = await supabase.auth.getSession();
+        setSession(existingSession);
         
-        if (session) {
+        if (existingSession) {
           console.log('Found Supabase session, using session user');
           setUser({
-            id: session.user.id,
-            username: session.user.email || 'user',
+            id: existingSession.user.id,
+            username: existingSession.user.email || 'user',
             password: '', // We don't store passwords in the frontend
             isAdmin: true // Assuming logged in users are admins for now
           });
@@ -91,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (data.session) {
           console.log('Supabase login successful');
+          setSession(data.session);
           toast({
             title: "Login successful",
             description: `Welcome back!`
@@ -141,6 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Sign out from Supabase first
     supabase.auth.signOut().then(() => {
       setUser(null);
+      setSession(null);
       removeAuthToken();
       toast({
         title: "Logged out",
@@ -152,7 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user || !!session, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
