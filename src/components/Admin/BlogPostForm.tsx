@@ -1,23 +1,20 @@
-import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
+
+import { useState, ChangeEvent, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BlogPost, BlogCategory, categoryLabels } from '@/lib/types';
+import { BlogPost, BlogCategory } from '@/lib/types';
 import { saveBlogPost } from '@/lib/services/blogService';
 import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+
+// Import our new components
+import { FormHeader } from './BlogPost/FormHeader';
+import { TitleExcerptSection } from './BlogPost/TitleExcerptSection';
+import { ContentSection } from './BlogPost/ContentSection';
+import { CategorySection } from './BlogPost/CategorySection';
+import { ImageUploadSection } from './BlogPost/ImageUploadSection';
+import { FeaturedToggle } from './BlogPost/FeaturedToggle';
+import { FormActions } from './BlogPost/FormActions';
+import { AuthCheck } from './BlogPost/AuthCheck';
 
 interface BlogPostFormProps {
   post?: BlogPost;
@@ -38,36 +35,8 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Check authentication status on mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        // If no Supabase session, redirect to login
-        if (!session && !user) {
-          console.log("No authentication found, redirecting to login");
-          toast({
-            title: "Authentication required",
-            description: "Please log in to create or edit posts.",
-            variant: "destructive"
-          });
-          navigate('/login');
-        } else {
-          console.log("User is authenticated:", user?.username || session?.user.email);
-        }
-      } catch (error) {
-        console.error("Error checking authentication:", error);
-        toast({
-          title: "Authentication error",
-          description: "There was an error verifying your authentication status.",
-          variant: "destructive"
-        });
-      }
-    };
-    
-    checkAuth();
-  }, [user, navigate, toast]);
+  // Check authentication
+  <AuthCheck user={user} />
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -168,119 +137,41 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {formError && (
-        <div className="p-3 text-sm font-medium text-white bg-destructive rounded-md">
-          {formError}
-        </div>
-      )}
+      <FormHeader formError={formError} />
       
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="title">Title</Label>
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Enter post title"
-            required
-          />
-        </div>
+        <TitleExcerptSection 
+          title={title}
+          setTitle={setTitle}
+          excerpt={excerpt}
+          setExcerpt={setExcerpt}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="excerpt">Excerpt</Label>
-          <Textarea
-            id="excerpt"
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            placeholder="Brief summary of the post"
-            required
-          />
-        </div>
+        <ContentSection 
+          content={content}
+          setContent={setContent}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="content">Content</Label>
-          <Textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Write your post content here (supports Markdown)"
-            className="min-h-[300px]"
-            required
-          />
-          <p className="text-xs text-muted-foreground">
-            Use Markdown for formatting. Headings: # H1, ## H2; Lists: - item; Bold: **text**; Links: [title](url)
-          </p>
-        </div>
+        <CategorySection 
+          category={category}
+          setCategory={setCategory}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="category">Category</Label>
-          <Select 
-            value={category} 
-            onValueChange={(value) => setCategory(value as BlogCategory)}
-          >
-            <SelectTrigger id="category">
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(categoryLabels).map(([key, label]) => (
-                <SelectItem key={key} value={key}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <ImageUploadSection 
+          handleImageChange={handleImageChange}
+          imagePreview={imagePreview}
+        />
 
-        <div className="space-y-2">
-          <Label htmlFor="image">Cover Image</Label>
-          <Input
-            id="image"
-            type="file"
-            accept="image/*"
-            onChange={handleImageChange}
-            className="cursor-pointer"
-          />
-          {imagePreview && (
-            <div className="mt-2">
-              <img
-                src={imagePreview}
-                alt="Cover image preview"
-                className="max-h-40 rounded-md"
-              />
-            </div>
-          )}
-          <p className="text-xs text-muted-foreground">
-            Recommended size: 1200×630px. Max file size: 2MB
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="featured"
-            checked={featured}
-            onCheckedChange={setFeatured}
-          />
-          <Label htmlFor="featured">Feature this post on the homepage</Label>
-        </div>
+        <FeaturedToggle 
+          featured={featured}
+          setFeatured={setFeatured}
+        />
       </div>
 
-      <div className="flex gap-4">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {post ? 'Updating...' : 'Publishing...'}
-            </>
-          ) : post ? 'Update Post' : 'Publish Post'}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate('/admin/posts')}
-        >
-          Cancel
-        </Button>
-      </div>
+      <FormActions 
+        isSubmitting={isSubmitting}
+        isEditMode={!!post}
+      />
     </form>
   );
 }
