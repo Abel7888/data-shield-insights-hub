@@ -22,7 +22,7 @@ interface BlogPostFormProps {
 }
 
 export function BlogPostForm({ post }: BlogPostFormProps) {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -42,18 +42,26 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     const refreshAuthSession = async () => {
       try {
         await supabase.auth.refreshSession();
-        const { data: { session } } = await supabase.auth.getSession();
-        setIsAuthenticated(!!session || !!user);
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
         
-        if (!session && !user) {
+        console.log("Checking auth in BlogPostForm:", { 
+          hasSession: !!currentSession, 
+          hasUser: !!user,
+          sessionUserId: currentSession?.user?.id,
+          userId: user?.id 
+        });
+        
+        setIsAuthenticated(!!currentSession || !!user);
+        
+        if (!currentSession && !user) {
           toast({
             title: "Authentication required",
             description: "Please log in to create or edit posts.",
             variant: "destructive"
           });
-          navigate('/login');
+          navigate('/login', { replace: true });
         } else {
-          console.log("User authenticated:", user?.username || session?.user.email);
+          console.log("User authenticated:", user?.username || currentSession?.user.email);
         }
       } catch (error) {
         console.error("Error refreshing session:", error);
@@ -62,7 +70,7 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     };
     
     refreshAuthSession();
-  }, [user, navigate, toast]);
+  }, [user, navigate, toast, session]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -124,17 +132,24 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Refresh authentication status first
+      // Force refresh authentication status
       await supabase.auth.refreshSession();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
       
-      if (!session && !user) {
+      console.log("Submitting with auth status:", { 
+        hasSession: !!currentSession, 
+        hasUser: !!user,
+        sessionUser: currentSession?.user?.email,
+        userData: user 
+      });
+      
+      if (!currentSession && !user) {
         toast({
           title: "Authentication Required",
           description: "Please log in to save blog posts.",
           variant: "destructive"
         });
-        navigate('/login');
+        navigate('/login', { replace: true });
         return;
       }
       
@@ -149,7 +164,7 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
         category,
         coverImage: coverImage || 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5',
         publishedDate: post?.publishedDate || new Date().toISOString(),
-        author: post?.author || user?.username || session?.user.email || 'Admin',
+        author: post?.author || user?.username || currentSession?.user.email || 'Admin',
         featured,
       };
 
@@ -175,7 +190,7 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
       
       // If it's an authentication error, redirect to login
       if (errorMessage.includes('not authenticated')) {
-        setTimeout(() => navigate('/login'), 1500);
+        setTimeout(() => navigate('/login', { replace: true }), 1500);
       }
     } finally {
       setIsSubmitting(false);

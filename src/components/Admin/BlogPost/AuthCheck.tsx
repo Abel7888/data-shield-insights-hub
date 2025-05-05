@@ -19,6 +19,9 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
     const checkAuth = async () => {
       try {
         setIsChecking(true);
+        
+        // Force refresh the session to ensure we have the latest auth state
+        await supabase.auth.refreshSession();
         const { data: { session } } = await supabase.auth.getSession();
         
         // If no Supabase session, redirect to login
@@ -30,10 +33,12 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
             variant: "destructive"
           });
           if (onAuthChecked) onAuthChecked(false);
-          navigate('/login');
+          navigate('/login', { replace: true });
           return false;
         } else {
           console.log("User is authenticated:", user?.username || session?.user.email);
+          console.log("Session exists:", !!session);
+          console.log("User exists:", !!user);
           if (onAuthChecked) onAuthChecked(true);
           return true;
         }

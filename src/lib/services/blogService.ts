@@ -154,7 +154,7 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
   console.log('Saving blog post:', post.title);
   
   try {
-    // Check for authentication using session - explicitly refresh the session first
+    // Force refresh the session to ensure we have the latest auth state
     await supabase.auth.refreshSession();
     const { data: { session } } = await supabase.auth.getSession();
     
@@ -234,7 +234,7 @@ export const deleteBlogPost = async (id: string): Promise<boolean> => {
   console.log('Deleting blog post with ID:', id);
   
   try {
-    // Check for authentication using session - explicitly refresh the session first
+    // Force refresh the session to ensure we have the latest auth state
     await supabase.auth.refreshSession();
     const { data: { session } } = await supabase.auth.getSession();
     
@@ -257,6 +257,6 @@ export const deleteBlogPost = async (id: string): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error('Error in deleteBlogPost function:', error);
-    return false;
+    throw error;
   }
 };

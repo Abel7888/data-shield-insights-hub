@@ -2,7 +2,6 @@
 import { User } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { getUserById, getUserByUsername } from './userService';
-import { useToast } from '@/hooks/use-toast';
 
 // Authentication
 export const setAuthToken = (userId: string): void => {
@@ -23,12 +22,15 @@ export const removeAuthToken = (): void => {
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    // First check for a Supabase session - refresh the session first
+    // First explicitly refresh the Supabase session
     await supabase.auth.refreshSession();
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
-      console.log('Found Supabase session, returning user from session');
+      console.log('Found active Supabase session, returning user from session');
+      console.log('Session user ID:', session.user.id);
+      console.log('Session user email:', session.user.email);
+      
       return {
         id: session.user.id,
         username: session.user.email || 'user',

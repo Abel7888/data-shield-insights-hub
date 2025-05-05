@@ -24,11 +24,16 @@ const Login = () => {
     setUsername('admin');
     setPassword('admin123');
     
-    // Check if we already have a Supabase session
+    // Check if we already have a Supabase session and log it
     const checkSession = async () => {
+      // Force refresh the session
+      await supabase.auth.refreshSession();
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         console.log("Active Supabase session found:", session.user.id);
+        console.log("Session expires at:", new Date(session.expires_at! * 1000).toLocaleString());
+      } else {
+        console.log("No active Supabase session found");
       }
     };
     
@@ -51,7 +56,7 @@ const Login = () => {
       
       if (success) {
         console.log('Login successful, redirecting to dashboard');
-        navigate('/admin/dashboard');
+        navigate('/admin/dashboard', { replace: true });
       } else {
         setErrorMessage('Invalid username or password');
       }

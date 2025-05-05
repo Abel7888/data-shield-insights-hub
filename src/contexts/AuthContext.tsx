@@ -13,6 +13,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
+  session: Session | null; // Add session to the context
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,8 +59,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser({
             id: existingSession.user.id,
             username: existingSession.user.email || 'user',
-            password: '', // We don't store passwords in the frontend
-            isAdmin: true // Assuming logged in users are admins for now
+            password: '', 
+            isAdmin: true 
           });
         } else {
           // Fall back to our custom auth
@@ -98,6 +99,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (data.session) {
           console.log('Supabase login successful');
           setSession(data.session);
+          setUser({
+            id: data.user.id,
+            username: data.user.email || 'user',
+            password: '',
+            isAdmin: true
+          });
           toast({
             title: "Login successful",
             description: `Welcome back!`
@@ -160,7 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user || !!session, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, session, isAuthenticated: !!user || !!session, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
