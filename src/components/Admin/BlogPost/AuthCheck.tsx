@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@/lib/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AuthCheckProps {
   user: User | null;
@@ -14,6 +15,7 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(true);
+  const { refreshUserSession } = useAuth();
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -25,9 +27,14 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
         
         // If we have a session, we're good
         if (session) {
-          console.log("AuthCheck: Session found, user is authenticated");
-          console.log("Session user:", session.user.email);
-          console.log("Session expiration:", new Date(session.expires_at! * 1000).toLocaleString());
+          const expiresAt = new Date(session.expires_at! * 1000);
+          const now = new Date();
+          const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / 1000 / 60);
+          
+          console.log("AuthCheck: Session found, user is authenticated", {
+            user: session.user.email,
+            expiresIn: `${timeLeft} minutes`
+          });
           
           if (onAuthChecked) onAuthChecked(true);
           return true;
@@ -36,13 +43,16 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
         // If we don't have a session but have a user, try refreshing
         if (!session && user) {
           console.log("AuthCheck: No session but user exists, trying to refresh");
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           
-          if (refreshError) {
-            console.error("Error refreshing session:", refreshError);
-            // Continue to next checks as we may have a valid local user
-          } else if (refreshData.session) {
-            console.log("Session refreshed successfully");
+          const refreshSuccessful = await refreshUserSession();
+          
+          if (refreshSuccessful) {
+            console.log("Session refreshed successfully in AuthCheck");
+            if (onAuthChecked) onAuthChecked(true);
+            return true;
+          } else {
+            console.log("Failed to refresh session in AuthCheck, but we have a local user");
+            // We still have a local user, so consider them authenticated
             if (onAuthChecked) onAuthChecked(true);
             return true;
           }
@@ -53,24 +63,28 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
           console.error("Authentication check failed - No session or user found");
           toast({
             title: "Authentication required",
-            description: "Please log in to create or edit posts.",
+            description: "Please log in to access this area.",
             variant: "destructive"
           });
           if (onAuthChecked) onAuthChecked(false);
-          navigate('/login', { replace: true });
+          
+          // Use setTimeout to avoid state updates during render
+          setTimeout(() => {
+            navigate('/login', { replace: true });
+          }, 0);
+          
           return false;
-        } else if (user) {
-          // We have a local user - proceed
-          console.log("AuthCheck: User is authenticated via local user");
-          console.log("User exists:", user.username);
-          if (onAuthChecked) onAuthChecked(true);
-          return true;
         }
         
         // Final fallback - not authenticated
         console.log("AuthCheck: User is not authenticated");
         if (onAuthChecked) onAuthChecked(false);
-        navigate('/login', { replace: true });
+        
+        // Use setTimeout to avoid state updates during render
+        setTimeout(() => {
+          navigate('/login', { replace: true });
+        }, 0);
+        
         return false;
       } catch (error) {
         console.error("Error checking authentication:", error);
@@ -87,7 +101,7 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
     };
     
     checkAuth();
-  }, [user, navigate, toast, onAuthChecked]);
+  }, [user, navigate, toast, onAuthChecked, refreshUserSession]);
 
   // Return null as this is just a utility component
   return null;

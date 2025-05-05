@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/lib/types';
 import { getUserByUsername } from '@/lib/services/userService';
-import { setAuthToken, removeAuthToken, getCurrentUser } from '@/lib/services/authService';
+import { setAuthToken, removeAuthToken, getCurrentUser, refreshSession } from '@/lib/services/authService';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Session } from '@supabase/supabase-js';
@@ -14,6 +14,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   session: Session | null;
+  refreshUserSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +24,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+
+  // Helper function to refresh session that can be exported to components
+  const refreshUserSession = async (): Promise<boolean> => {
+    try {
+      const success = await refreshSession();
+      if (success) {
+        // Get the new session after refresh
+        const { data: { session: newSession } } = await supabase.auth.getSession();
+        if (newSession) {
+          setSession(newSession);
+          setUser({
+            id: newSession.user.id,
+            username: newSession.user.email || 'user',
+            password: '',
+            isAdmin: true
+          });
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error('Error refreshing user session:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -50,38 +76,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         });
         
-        // 2. Force refresh the session to ensure we have the latest auth state
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.error("Error refreshing session during init:", refreshError);
-        } else if (refreshData.session) {
-          console.log("Successfully refreshed session");
-          setSession(refreshData.session);
+        // 2. Get current session
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        if (currentSession) {
+          console.log('Found existing session:', {
+            user: currentSession.user.email,
+            expires: new Date(currentSession.expires_at! * 1000).toLocaleString() 
+          });
+          setSession(currentSession);
           setUser({
-            id: refreshData.session.user.id,
-            username: refreshData.session.user.email || 'user',
+            id: currentSession.user.id,
+            username: currentSession.user.email || 'user',
             password: '',
             isAdmin: true
           });
         } else {
-          // 3. If no session from refresh, check for existing session
-          const { data: { session: existingSession } } = await supabase.auth.getSession();
-          setSession(existingSession);
-          
-          if (existingSession) {
-            console.log('Found Supabase session, using session user');
-            setUser({
-              id: existingSession.user.id,
-              username: existingSession.user.email || 'user',
-              password: '', 
-              isAdmin: true 
-            });
-          } else {
-            // 4. Fall back to custom auth if no Supabase session
-            console.log('No Supabase session, checking for custom auth');
-            const currentUser = await getCurrentUser();
-            setUser(currentUser);
-          }
+          // 3. No session, try refreshing
+          await refreshUserSession();
+        }
+        
+        // 4. If still no session, fall back to custom auth
+        if (!session) {
+          console.log('No Supabase session, checking for custom auth');
+          const currentUser = await getCurrentUser();
+          setUser(currentUser);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -140,13 +159,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(foundUser);
         setAuthToken(foundUser.id);
         
-        // After successful login, refresh Supabase session
-        await supabase.auth.refreshSession();
-        
         toast({
-          title: "Login successful",
-          description: `Welcome back, ${foundUser.username}!`
-        });
+            title: "Login successful",
+            description: `Welcome back, ${foundUser.username}!`
+          });
         return true;
       }
       
@@ -191,7 +207,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isAuthenticated: !!user || !!session, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      isAuthenticated: !!user || !!session, 
+      isLoading, 
+      login, 
+      logout, 
+      refreshUserSession 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -7,11 +7,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { ShieldCheck, Loader2 } from 'lucide-react';
+import { ShieldCheck, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Login = () => {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, refreshUserSession } = useAuth();
   const navigate = useNavigate();
   
   const [username, setUsername] = useState('');
@@ -19,6 +19,7 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [sessionStatus, setSessionStatus] = useState('');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Pre-fill admin credentials for convenience and check session
   useEffect(() => {
@@ -40,18 +41,22 @@ const Login = () => {
             setSessionStatus("Session token expired, will try to refresh");
             
             // Try to refresh the session
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            const success = await refreshUserSession();
             
-            if (refreshError) {
-              console.error("Error refreshing session on Login page:", refreshError);
-              setSessionStatus("Error refreshing: " + refreshError.message);
-            } else if (refreshData.session) {
+            if (success) {
               console.log("Successfully refreshed session on Login page");
               setSessionStatus("Session refreshed successfully");
               
-              const newExpiresAt = new Date(refreshData.session.expires_at! * 1000);
-              const timeLeft = Math.round((newExpiresAt.getTime() - now.getTime()) / 1000 / 60);
-              setSessionStatus(`Session refreshed, expires in ${timeLeft} minutes`);
+              // Get the new session
+              const { data: { session: newSession } } = await supabase.auth.getSession();
+              
+              if (newSession) {
+                const newExpiresAt = new Date(newSession.expires_at! * 1000);
+                const timeLeft = Math.round((newExpiresAt.getTime() - now.getTime()) / 1000 / 60);
+                setSessionStatus(`Session refreshed, expires in ${timeLeft} minutes`);
+              }
+            } else {
+              setSessionStatus("Failed to refresh session");
             }
           } else {
             const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / 1000 / 60);
@@ -59,18 +64,6 @@ const Login = () => {
           }
         } else {
           setSessionStatus("No active session");
-          
-          // Try refresh anyway
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          
-          if (refreshError) {
-            console.error("Error refreshing session:", refreshError);
-          } else if (refreshData.session) {
-            console.log("Successfully refreshed session");
-            setSessionStatus("Session established");
-          } else {
-            setSessionStatus("No session available");
-          }
         }
       } catch (error) {
         console.error("Error checking session:", error);
@@ -79,7 +72,26 @@ const Login = () => {
     };
     
     checkAndDebugSession();
-  }, []);
+  }, [refreshUserSession]);
+  
+  const handleManualRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Try to refresh the session
+      const success = await refreshUserSession();
+      
+      if (success) {
+        setSessionStatus("Session manually refreshed successfully");
+      } else {
+        setSessionStatus("Manual refresh failed - no valid session");
+      }
+    } catch (error) {
+      console.error("Error during manual refresh:", error);
+      setSessionStatus(`Error during refresh: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -93,24 +105,36 @@ const Login = () => {
     
     try {
       console.log('Submitting login form with username:', username);
+      
+      // Always clear any existing session first to avoid conflicts
+      await supabase.auth.signOut();
+      setSessionStatus('Previous session cleared');
+      
       const success = await login(username, password);
       
       if (success) {
         console.log('Login successful, redirecting to dashboard');
-        navigate('/admin/dashboard', { replace: true });
+        setSessionStatus('Login successful - redirecting...');
+        
+        // Add a small delay to ensure state is updated
+        setTimeout(() => {
+          navigate('/admin/dashboard', { replace: true });
+        }, 500);
       } else {
         setErrorMessage('Invalid username or password');
+        setSessionStatus('Login failed - invalid credentials');
       }
     } catch (error) {
       console.error('Login error:', error);
       setErrorMessage('An error occurred during login');
+      setSessionStatus(`Login error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }
   };
   
   // Redirect if already authenticated
-  if (isAuthenticated) {
+  if (isAuthenticated && !isLoading && !isSubmitting) {
     console.log('User is already authenticated, redirecting to dashboard');
     return <Navigate to="/admin/dashboard" replace />;
   }
@@ -118,7 +142,7 @@ const Login = () => {
   return (
     <MainLayout>
       <div className="flex justify-center items-center min-h-[calc(100vh-200px)]">
-        <Card className="w-[350px]">
+        <Card className="w-[400px]">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-2">
               <ShieldCheck className="h-10 w-10 text-shield" />
@@ -140,11 +164,26 @@ const Login = () => {
                     {errorMessage}
                   </div>
                 )}
-                {sessionStatus && (
-                  <div className="p-3 rounded bg-muted text-muted-foreground text-xs">
-                    Session status: {sessionStatus}
+                
+                <div className="p-3 rounded bg-muted text-xs flex justify-between items-center">
+                  <div>
+                    <span className="font-semibold">Session status:</span> {sessionStatus}
                   </div>
-                )}
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="secondary" 
+                    onClick={handleManualRefresh}
+                    disabled={isRefreshing}
+                  >
+                    {isRefreshing ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+                
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
                   <Input

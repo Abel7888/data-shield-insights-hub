@@ -20,9 +20,35 @@ export const removeAuthToken = (): void => {
   localStorage.removeItem('data-shield-auth-token');
 };
 
+export const refreshSession = async (): Promise<boolean> => {
+  try {
+    console.log('Attempting to refresh Supabase session');
+    const { data, error } = await supabase.auth.refreshSession();
+    
+    if (error) {
+      console.error('Error refreshing session:', error.message);
+      return false;
+    }
+
+    if (data && data.session) {
+      console.log('Session refreshed successfully', {
+        user: data.session.user.email,
+        expires: new Date(data.session.expires_at! * 1000).toLocaleString()
+      });
+      return true;
+    } else {
+      console.log('No session returned after refresh attempt');
+      return false;
+    }
+  } catch (error) {
+    console.error('Exception during session refresh:', error);
+    return false;
+  }
+};
+
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    // First attempt to get the current session directly (faster path)
+    // First attempt to get the current session directly
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {
@@ -39,18 +65,21 @@ export const getCurrentUser = async (): Promise<User | null> => {
     }
 
     // If no session found, try refreshing session as a fallback
-    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    const refreshSuccess = await refreshSession();
     
-    if (refreshError) {
-      console.error('Error refreshing session in getCurrentUser:', refreshError);
-    } else if (refreshData.session) {
-      console.log('Session refreshed successfully in getCurrentUser');
-      return {
-        id: refreshData.session.user.id,
-        username: refreshData.session.user.email || 'user',
-        password: '',
-        isAdmin: true
-      };
+    if (refreshSuccess) {
+      // Get the refreshed session
+      const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+      
+      if (refreshedSession) {
+        console.log('Using refreshed session');
+        return {
+          id: refreshedSession.user.id,
+          username: refreshedSession.user.email || 'user',
+          password: '',
+          isAdmin: true
+        };
+      }
     }
   
     // If no Supabase session, check if admin user is logged in

@@ -7,11 +7,11 @@ import { FileText } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdBanner } from '@/components/Advertisement/AdBanner';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
 
 const NewPost = () => {
-  const { user, session } = useAuth();
+  const { user, session, refreshUserSession, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isVerifyingAuth, setIsVerifyingAuth] = useState(true);
@@ -20,44 +20,30 @@ const NewPost = () => {
   useEffect(() => {
     const verifyAuth = async () => {
       try {
-        setAuthStatus('Checking session...');
-        // First try to get current session (fastest path)
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        setIsVerifyingAuth(true);
+        setAuthStatus('Checking authentication...');
         
-        if (currentSession) {
-          const expiresAt = new Date(currentSession.expires_at! * 1000);
-          const now = new Date();
-          const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / 1000 / 60);
-          
-          console.log("NewPost: Active session found", {
-            user: currentSession.user.email,
-            expiresIn: `${timeLeft} minutes`
-          });
-          
-          setAuthStatus(`Authenticated as ${currentSession.user.email}`);
+        // Skip extra checks if we already know user is authenticated
+        if (isAuthenticated) {
+          console.log("NewPost: User is already authenticated");
+          const userInfo = user?.username || (session?.user?.email || "Unknown");
+          setAuthStatus(`Authenticated as ${userInfo}`);
           setIsVerifyingAuth(false);
           return;
         }
         
-        // If no session but we have a user, try refreshing
-        if (!currentSession && user) {
-          setAuthStatus('No session, trying to refresh...');
-          // Force refresh the session
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          
-          if (refreshError) {
-            console.error("Error refreshing session in NewPost:", refreshError);
-            setAuthStatus(`Refresh error: ${refreshError.message}`);
-          } else if (refreshData.session) {
-            console.log("Session refreshed successfully in NewPost");
-            setAuthStatus(`Session refreshed for ${refreshData.session.user.email}`);
-            setIsVerifyingAuth(false);
-            return;
-          }
+        // Try refreshing the session
+        const refreshSuccess = await refreshUserSession();
+        
+        if (refreshSuccess) {
+          console.log("Session refreshed successfully in NewPost");
+          setAuthStatus(`Authentication refreshed successfully`);
+          setIsVerifyingAuth(false);
+          return;
         }
         
         // If we have a local user but no Supabase session, we can still proceed
-        if (user) {
+        if (user && !session) {
           console.log("NewPost: No Supabase session, but local user found:", user.username);
           setAuthStatus(`Authenticated as ${user.username} (local)`);
           setIsVerifyingAuth(false);
@@ -88,7 +74,31 @@ const NewPost = () => {
     };
     
     verifyAuth();
-  }, [user, session, navigate, toast]);
+  }, [user, session, navigate, toast, refreshUserSession, isAuthenticated]);
+
+  const handleForceRefresh = async () => {
+    setIsVerifyingAuth(true);
+    setAuthStatus('Manually refreshing authentication...');
+    
+    const success = await refreshUserSession();
+    
+    if (success) {
+      setAuthStatus('Authentication refreshed successfully');
+      toast({
+        title: "Session Refreshed",
+        description: "Your authentication session has been refreshed."
+      });
+    } else {
+      setAuthStatus('Failed to refresh authentication');
+      toast({
+        title: "Refresh Failed",
+        description: "Unable to refresh your session. Please try logging in again.",
+        variant: "destructive"
+      });
+    }
+    
+    setIsVerifyingAuth(false);
+  };
 
   if (isVerifyingAuth) {
     return (
@@ -103,9 +113,15 @@ const NewPost = () => {
 
   return (
     <AdminLayout>
-      <div className="flex items-center space-x-2 mb-6">
-        <FileText className="h-5 w-5 text-shield" />
-        <h2 className="text-xl font-bold">Create New Post</h2>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-2">
+          <FileText className="h-5 w-5 text-shield" />
+          <h2 className="text-xl font-bold">Create New Post</h2>
+        </div>
+        
+        <Button variant="outline" size="sm" onClick={handleForceRefresh}>
+          Refresh Session
+        </Button>
       </div>
       
       <div className="mb-4 p-3 bg-muted rounded-md text-sm">
