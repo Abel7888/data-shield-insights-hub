@@ -20,13 +20,33 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
       try {
         setIsChecking(true);
         
-        // Force refresh the session to ensure we have the latest auth state
-        const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
-        if (refreshError) {
-          console.error("Error refreshing session:", refreshError);
+        // First check for existing session (fast path)
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // If we have a session, we're good
+        if (session) {
+          console.log("AuthCheck: Session found, user is authenticated");
+          console.log("Session user:", session.user.email);
+          console.log("Session expiration:", new Date(session.expires_at! * 1000).toLocaleString());
+          
+          if (onAuthChecked) onAuthChecked(true);
+          return true;
         }
         
-        const { data: { session } } = await supabase.auth.getSession();
+        // If we don't have a session but have a user, try refreshing
+        if (!session && user) {
+          console.log("AuthCheck: No session but user exists, trying to refresh");
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error("Error refreshing session:", refreshError);
+            // Continue to next checks as we may have a valid local user
+          } else if (refreshData.session) {
+            console.log("Session refreshed successfully");
+            if (onAuthChecked) onAuthChecked(true);
+            return true;
+          }
+        }
         
         // If no Supabase session and no local user, redirect to login
         if (!session && !user) {
@@ -39,14 +59,19 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
           if (onAuthChecked) onAuthChecked(false);
           navigate('/login', { replace: true });
           return false;
-        } else {
-          // We have either a session or a local user - proceed
-          console.log("AuthCheck: User is authenticated");
-          console.log("Session exists:", !!session);
-          console.log("User exists:", !!user);
+        } else if (user) {
+          // We have a local user - proceed
+          console.log("AuthCheck: User is authenticated via local user");
+          console.log("User exists:", user.username);
           if (onAuthChecked) onAuthChecked(true);
           return true;
         }
+        
+        // Final fallback - not authenticated
+        console.log("AuthCheck: User is not authenticated");
+        if (onAuthChecked) onAuthChecked(false);
+        navigate('/login', { replace: true });
+        return false;
       } catch (error) {
         console.error("Error checking authentication:", error);
         toast({

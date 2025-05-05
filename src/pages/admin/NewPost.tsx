@@ -15,36 +15,73 @@ const NewPost = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isVerifyingAuth, setIsVerifyingAuth] = useState(true);
+  const [authStatus, setAuthStatus] = useState('Verifying...');
 
   useEffect(() => {
     const verifyAuth = async () => {
       try {
-        // Force refresh the session
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.error("Error refreshing session in NewPost:", refreshError);
-        }
-        
+        setAuthStatus('Checking session...');
+        // First try to get current session (fastest path)
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
-        console.log("NewPost auth verification:", {
-          hasSession: !!currentSession,
-          hasUser: !!user,
-          sessionExpiration: currentSession ? new Date(currentSession.expires_at! * 1000).toLocaleString() : 'none'
-        });
-        
-        if (!currentSession && !user) {
-          console.log("No authenticated user found, redirecting to login");
-          toast({
-            title: "Authentication Required",
-            description: "Please log in to create new posts.",
-            variant: "destructive"
+        if (currentSession) {
+          const expiresAt = new Date(currentSession.expires_at! * 1000);
+          const now = new Date();
+          const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / 1000 / 60);
+          
+          console.log("NewPost: Active session found", {
+            user: currentSession.user.email,
+            expiresIn: `${timeLeft} minutes`
           });
-          navigate('/login', { replace: true });
+          
+          setAuthStatus(`Authenticated as ${currentSession.user.email}`);
+          setIsVerifyingAuth(false);
+          return;
         }
+        
+        // If no session but we have a user, try refreshing
+        if (!currentSession && user) {
+          setAuthStatus('No session, trying to refresh...');
+          // Force refresh the session
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error("Error refreshing session in NewPost:", refreshError);
+            setAuthStatus(`Refresh error: ${refreshError.message}`);
+          } else if (refreshData.session) {
+            console.log("Session refreshed successfully in NewPost");
+            setAuthStatus(`Session refreshed for ${refreshData.session.user.email}`);
+            setIsVerifyingAuth(false);
+            return;
+          }
+        }
+        
+        // If we have a local user but no Supabase session, we can still proceed
+        if (user) {
+          console.log("NewPost: No Supabase session, but local user found:", user.username);
+          setAuthStatus(`Authenticated as ${user.username} (local)`);
+          setIsVerifyingAuth(false);
+          return;
+        }
+        
+        // No auth at all - redirect to login
+        console.log("No authenticated user found, redirecting to login");
+        setAuthStatus('Not authenticated');
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to create new posts.",
+          variant: "destructive"
+        });
+        navigate('/login', { replace: true });
       } catch (error) {
         console.error("Error verifying auth in NewPost:", error);
+        setAuthStatus('Error checking authentication');
+        toast({
+          title: "Authentication Error",
+          description: "There was a problem verifying your login status.",
+          variant: "destructive"
+        });
+        navigate('/login', { replace: true });
       } finally {
         setIsVerifyingAuth(false);
       }
@@ -58,7 +95,7 @@ const NewPost = () => {
       <AdminLayout>
         <div className="flex justify-center items-center py-10">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <span className="ml-3">Verifying authentication...</span>
+          <span className="ml-3">{authStatus}</span>
         </div>
       </AdminLayout>
     );
@@ -69,6 +106,11 @@ const NewPost = () => {
       <div className="flex items-center space-x-2 mb-6">
         <FileText className="h-5 w-5 text-shield" />
         <h2 className="text-xl font-bold">Create New Post</h2>
+      </div>
+      
+      <div className="mb-4 p-3 bg-muted rounded-md text-sm">
+        <div className="font-medium">Authentication Status</div>
+        <div className="text-muted-foreground">{authStatus}</div>
       </div>
       
       <Tabs defaultValue="post">

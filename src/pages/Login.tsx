@@ -18,6 +18,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [sessionStatus, setSessionStatus] = useState('');
   
   // Pre-fill admin credentials for convenience and check session
   useEffect(() => {
@@ -27,37 +28,53 @@ const Login = () => {
     // Check session and debug authentication
     const checkAndDebugSession = async () => {
       try {
-        // Force refresh the session
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.error("Error refreshing session on Login page:", refreshError);
-        } else if (refreshData.session) {
-          console.log("Successfully refreshed session on Login page");
-        }
-        
-        // Check current session
+        // Get current session
         const { data: { session } } = await supabase.auth.getSession();
         
         if (session) {
-          console.log("Active Supabase session found:", session.user.id);
-          console.log("Session expires at:", new Date(session.expires_at! * 1000).toLocaleString());
-          console.log("Current time:", new Date().toLocaleString());
-          
-          // Check if token is expired
           const expiresAt = new Date(session.expires_at! * 1000);
           const now = new Date();
+          
+          // Check if token is expired
           if (expiresAt < now) {
-            console.log("⚠️ WARNING: Session token is expired");
+            setSessionStatus("Session token expired, will try to refresh");
+            
+            // Try to refresh the session
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError) {
+              console.error("Error refreshing session on Login page:", refreshError);
+              setSessionStatus("Error refreshing: " + refreshError.message);
+            } else if (refreshData.session) {
+              console.log("Successfully refreshed session on Login page");
+              setSessionStatus("Session refreshed successfully");
+              
+              const newExpiresAt = new Date(refreshData.session.expires_at! * 1000);
+              const timeLeft = Math.round((newExpiresAt.getTime() - now.getTime()) / 1000 / 60);
+              setSessionStatus(`Session refreshed, expires in ${timeLeft} minutes`);
+            }
           } else {
             const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / 1000 / 60);
-            console.log(`Session token expires in approximately ${timeLeft} minutes`);
+            setSessionStatus(`Active session, expires in ${timeLeft} minutes`);
           }
         } else {
-          console.log("No active Supabase session found");
+          setSessionStatus("No active session");
+          
+          // Try refresh anyway
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error("Error refreshing session:", refreshError);
+          } else if (refreshData.session) {
+            console.log("Successfully refreshed session");
+            setSessionStatus("Session established");
+          } else {
+            setSessionStatus("No session available");
+          }
         }
       } catch (error) {
         console.error("Error checking session:", error);
+        setSessionStatus("Error checking session");
       }
     };
     
@@ -121,6 +138,11 @@ const Login = () => {
                 {errorMessage && (
                   <div className="p-3 rounded bg-destructive/15 text-destructive text-sm">
                     {errorMessage}
+                  </div>
+                )}
+                {sessionStatus && (
+                  <div className="p-3 rounded bg-muted text-muted-foreground text-xs">
+                    Session status: {sessionStatus}
                   </div>
                 )}
                 <div className="space-y-2">
