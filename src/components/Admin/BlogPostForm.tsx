@@ -1,4 +1,3 @@
-
 import { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BlogPost, BlogCategory } from '@/lib/types';
@@ -36,24 +35,35 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authCheckCompleted, setAuthCheckCompleted] = useState(false);
 
-  // Check authentication on component mount
+  // More robust session/auth checking on component mount
   useEffect(() => {
-    const refreshAuthSession = async () => {
+    const verifyAuth = async () => {
       try {
-        await supabase.auth.refreshSession();
+        // Force refresh Supabase session first
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error("Error refreshing session in BlogPostForm:", refreshError);
+        }
+        
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         console.log("Checking auth in BlogPostForm:", { 
           hasSession: !!currentSession, 
           hasUser: !!user,
           sessionUserId: currentSession?.user?.id,
-          userId: user?.id 
+          userId: user?.id,
+          sessionExpiration: currentSession ? new Date(currentSession.expires_at! * 1000).toLocaleString() : 'none'
         });
         
-        setIsAuthenticated(!!currentSession || !!user);
+        // If we have either a session or a user, consider authenticated
+        const isAuth = !!currentSession || !!user;
+        setIsAuthenticated(isAuth);
+        setAuthCheckCompleted(true);
         
-        if (!currentSession && !user) {
+        if (!isAuth) {
           toast({
             title: "Authentication required",
             description: "Please log in to create or edit posts.",
@@ -61,15 +71,23 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
           });
           navigate('/login', { replace: true });
         } else {
-          console.log("User authenticated:", user?.username || currentSession?.user.email);
+          console.log("BlogPostForm: User authenticated as:", 
+            user?.username || currentSession?.user.email || "Unknown user");
         }
       } catch (error) {
-        console.error("Error refreshing session:", error);
+        console.error("Error verifying authentication in BlogPostForm:", error);
         setIsAuthenticated(false);
+        setAuthCheckCompleted(true);
+        toast({
+          title: "Authentication error",
+          description: "There was an error verifying your authentication status.",
+          variant: "destructive"
+        });
+        navigate('/login', { replace: true });
       }
     };
     
-    refreshAuthSession();
+    verifyAuth();
   }, [user, navigate, toast, session]);
 
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -132,15 +150,28 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     setIsSubmitting(true);
 
     try {
-      // Force refresh authentication status
-      await supabase.auth.refreshSession();
+      // Force refresh authentication status before submitting
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error("Error refreshing session before post submission:", refreshError);
+        toast({
+          title: "Authentication Error",
+          description: "Failed to refresh your session. Please log in again.",
+          variant: "destructive"
+        });
+        navigate('/login', { replace: true });
+        return;
+      }
+      
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       
       console.log("Submitting with auth status:", { 
         hasSession: !!currentSession, 
         hasUser: !!user,
         sessionUser: currentSession?.user?.email,
-        userData: user 
+        userData: user,
+        sessionExpiration: currentSession ? new Date(currentSession.expires_at! * 1000).toLocaleString() : 'none'
       });
       
       if (!currentSession && !user) {
@@ -190,6 +221,11 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
       
       // If it's an authentication error, redirect to login
       if (errorMessage.includes('not authenticated')) {
+        toast({
+          title: "Session Expired",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive"
+        });
         setTimeout(() => navigate('/login', { replace: true }), 1500);
       }
     } finally {
@@ -197,8 +233,18 @@ export function BlogPostForm({ post }: BlogPostFormProps) {
     }
   };
 
+  // Show loading state while auth check is in progress
+  if (!authCheckCompleted) {
+    return (
+      <div className="flex justify-center items-center py-10">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        <span className="ml-3">Checking authentication...</span>
+      </div>
+    );
+  }
+
+  // If auth check is done but not authenticated, show AuthCheck
   if (!isAuthenticated) {
-    // Return AuthCheck which will handle the redirect if needed
     return <AuthCheck user={user} onAuthChecked={setIsAuthenticated} />;
   }
 

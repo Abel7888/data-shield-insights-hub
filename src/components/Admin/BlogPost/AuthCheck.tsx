@@ -21,12 +21,16 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
         setIsChecking(true);
         
         // Force refresh the session to ensure we have the latest auth state
-        await supabase.auth.refreshSession();
+        const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.error("Error refreshing session:", refreshError);
+        }
+        
         const { data: { session } } = await supabase.auth.getSession();
         
-        // If no Supabase session, redirect to login
+        // If no Supabase session and no local user, redirect to login
         if (!session && !user) {
-          console.log("No authentication found, redirecting to login");
+          console.error("Authentication check failed - No session or user found");
           toast({
             title: "Authentication required",
             description: "Please log in to create or edit posts.",
@@ -36,7 +40,8 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
           navigate('/login', { replace: true });
           return false;
         } else {
-          console.log("User is authenticated:", user?.username || session?.user.email);
+          // We have either a session or a local user - proceed
+          console.log("AuthCheck: User is authenticated");
           console.log("Session exists:", !!session);
           console.log("User exists:", !!user);
           if (onAuthChecked) onAuthChecked(true);
@@ -59,6 +64,6 @@ export const AuthCheck = ({ user, onAuthChecked }: AuthCheckProps) => {
     checkAuth();
   }, [user, navigate, toast, onAuthChecked]);
 
-  // Return a loading state or null based on the checking state
+  // Return null as this is just a utility component
   return null;
 };

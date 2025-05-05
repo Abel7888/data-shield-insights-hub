@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, BlogCategory } from '../types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost } from '../supabaseTypes';
@@ -154,17 +153,25 @@ export const saveBlogPost = async (post: BlogPost): Promise<BlogPost> => {
   console.log('Saving blog post:', post.title);
   
   try {
-    // Force refresh the session to ensure we have the latest auth state
-    await supabase.auth.refreshSession();
+    // First, force refresh the auth session to ensure it's valid
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      console.error('Error refreshing session before saving post:', refreshError);
+      throw new Error(`Authentication error: ${refreshError.message}`);
+    }
+    
+    // After refresh, check if we have a valid session
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.error('No active session found, user not authenticated');
+      console.error('No active session found after refresh, user not authenticated');
       throw new Error('User not authenticated. Please login before saving posts.');
     }
     
-    console.log('User is authenticated, proceeding with save operation');
-    console.log('Session user:', session.user.id);
+    console.log('User is authenticated with valid session, proceeding with save operation');
+    console.log('Session user ID:', session.user.id);
+    console.log('Session expires at:', new Date(session.expires_at! * 1000).toLocaleString());
 
     // Prepare post data
     const isNewPost = !post.id || post.id === '';
@@ -234,14 +241,23 @@ export const deleteBlogPost = async (id: string): Promise<boolean> => {
   console.log('Deleting blog post with ID:', id);
   
   try {
-    // Force refresh the session to ensure we have the latest auth state
-    await supabase.auth.refreshSession();
+    // First, force refresh the auth session to ensure it's valid
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      console.error('Error refreshing session before deleting post:', refreshError);
+      throw new Error(`Authentication error: ${refreshError.message}`);
+    }
+    
+    // After refresh, check if we have a valid session
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!session) {
-      console.error('No active session found, user not authenticated');
+      console.error('No active session found after refresh, user not authenticated');
       throw new Error('User not authenticated. Please login before deleting posts.');
     }
+    
+    console.log('User is authenticated with valid session, proceeding with delete operation');
 
     const { error } = await supabase
       .from('blog_posts')

@@ -19,25 +19,49 @@ const Login = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   
-  // Pre-fill admin credentials for convenience
+  // Pre-fill admin credentials for convenience and check session
   useEffect(() => {
     setUsername('admin');
     setPassword('admin123');
     
-    // Check if we already have a Supabase session and log it
-    const checkSession = async () => {
-      // Force refresh the session
-      await supabase.auth.refreshSession();
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        console.log("Active Supabase session found:", session.user.id);
-        console.log("Session expires at:", new Date(session.expires_at! * 1000).toLocaleString());
-      } else {
-        console.log("No active Supabase session found");
+    // Check session and debug authentication
+    const checkAndDebugSession = async () => {
+      try {
+        // Force refresh the session
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error("Error refreshing session on Login page:", refreshError);
+        } else if (refreshData.session) {
+          console.log("Successfully refreshed session on Login page");
+        }
+        
+        // Check current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log("Active Supabase session found:", session.user.id);
+          console.log("Session expires at:", new Date(session.expires_at! * 1000).toLocaleString());
+          console.log("Current time:", new Date().toLocaleString());
+          
+          // Check if token is expired
+          const expiresAt = new Date(session.expires_at! * 1000);
+          const now = new Date();
+          if (expiresAt < now) {
+            console.log("⚠️ WARNING: Session token is expired");
+          } else {
+            const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / 1000 / 60);
+            console.log(`Session token expires in approximately ${timeLeft} minutes`);
+          }
+        } else {
+          console.log("No active Supabase session found");
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
       }
     };
     
-    checkSession();
+    checkAndDebugSession();
   }, []);
   
   const handleSubmit = async (e: FormEvent) => {

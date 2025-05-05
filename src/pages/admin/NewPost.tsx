@@ -1,11 +1,69 @@
 
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '@/components/Layout/AdminLayout';
 import { BlogPostForm } from '@/components/Admin/BlogPostForm';
 import { FileText } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AdBanner } from '@/components/Advertisement/AdBanner';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 const NewPost = () => {
+  const { user, session } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isVerifyingAuth, setIsVerifyingAuth] = useState(true);
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      try {
+        // Force refresh the session
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.error("Error refreshing session in NewPost:", refreshError);
+        }
+        
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        
+        console.log("NewPost auth verification:", {
+          hasSession: !!currentSession,
+          hasUser: !!user,
+          sessionExpiration: currentSession ? new Date(currentSession.expires_at! * 1000).toLocaleString() : 'none'
+        });
+        
+        if (!currentSession && !user) {
+          console.log("No authenticated user found, redirecting to login");
+          toast({
+            title: "Authentication Required",
+            description: "Please log in to create new posts.",
+            variant: "destructive"
+          });
+          navigate('/login', { replace: true });
+        }
+      } catch (error) {
+        console.error("Error verifying auth in NewPost:", error);
+      } finally {
+        setIsVerifyingAuth(false);
+      }
+    };
+    
+    verifyAuth();
+  }, [user, session, navigate, toast]);
+
+  if (isVerifyingAuth) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center py-10">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <span className="ml-3">Verifying authentication...</span>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="flex items-center space-x-2 mb-6">

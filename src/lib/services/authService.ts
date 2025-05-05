@@ -23,7 +23,21 @@ export const removeAuthToken = (): void => {
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
     // First explicitly refresh the Supabase session
-    await supabase.auth.refreshSession();
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    
+    if (refreshError) {
+      console.error('Error refreshing session in getCurrentUser:', refreshError);
+    } else if (refreshData.session) {
+      console.log('Session refreshed successfully in getCurrentUser');
+      return {
+        id: refreshData.session.user.id,
+        username: refreshData.session.user.email || 'user',
+        password: '',
+        isAdmin: true
+      };
+    }
+    
+    // If refresh didn't work, try to get the current session
     const { data: { session } } = await supabase.auth.getSession();
     
     if (session) {

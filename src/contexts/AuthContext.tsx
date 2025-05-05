@@ -13,7 +13,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
-  session: Session | null; // Add session to the context
+  session: Session | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,13 +30,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         console.log("Initializing authentication...");
         
-        // Set up auth state listener FIRST (to prevent missing auth events)
+        // 1. Set up auth state listener FIRST (to prevent missing auth events)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
           console.log('Auth state changed:', event);
-          setSession(currentSession);
           
           if (currentSession) {
             console.log('Session user data:', currentSession.user);
+            setSession(currentSession);
             setUser({
               id: currentSession.user.id,
               username: currentSession.user.email || 'user',
@@ -50,23 +50,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         });
         
-        // THEN check for existing session
-        const { data: { session: existingSession } } = await supabase.auth.getSession();
-        setSession(existingSession);
-        
-        if (existingSession) {
-          console.log('Found Supabase session, using session user');
+        // 2. Force refresh the session to ensure we have the latest auth state
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          console.error("Error refreshing session during init:", refreshError);
+        } else if (refreshData.session) {
+          console.log("Successfully refreshed session");
+          setSession(refreshData.session);
           setUser({
-            id: existingSession.user.id,
-            username: existingSession.user.email || 'user',
-            password: '', 
-            isAdmin: true 
+            id: refreshData.session.user.id,
+            username: refreshData.session.user.email || 'user',
+            password: '',
+            isAdmin: true
           });
         } else {
-          // Fall back to our custom auth
-          console.log('No Supabase session, checking for custom auth');
-          const currentUser = await getCurrentUser();
-          setUser(currentUser);
+          // 3. If no session from refresh, check for existing session
+          const { data: { session: existingSession } } = await supabase.auth.getSession();
+          setSession(existingSession);
+          
+          if (existingSession) {
+            console.log('Found Supabase session, using session user');
+            setUser({
+              id: existingSession.user.id,
+              username: existingSession.user.email || 'user',
+              password: '', 
+              isAdmin: true 
+            });
+          } else {
+            // 4. Fall back to custom auth if no Supabase session
+            console.log('No Supabase session, checking for custom auth');
+            const currentUser = await getCurrentUser();
+            setUser(currentUser);
+          }
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -124,6 +139,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('Login successful for user:', foundUser);
         setUser(foundUser);
         setAuthToken(foundUser.id);
+        
+        // After successful login, refresh Supabase session
+        await supabase.auth.refreshSession();
+        
         toast({
           title: "Login successful",
           description: `Welcome back, ${foundUser.username}!`
@@ -151,9 +170,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const logout = () => {
-    // Sign out from Supabase first
-    supabase.auth.signOut().then(() => {
+  const logout = async () => {
+    try {
+      // Sign out from Supabase first
+      await supabase.auth.signOut();
       setUser(null);
       setSession(null);
       removeAuthToken();
@@ -161,9 +181,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         title: "Logged out",
         description: "You have been successfully logged out."
       });
-    }).catch(error => {
+    } catch (error) {
       console.error('Error during logout:', error);
-    });
+      toast({
+        title: "Logout error",
+        description: "An error occurred during logout."
+      });
+    }
   };
 
   return (
