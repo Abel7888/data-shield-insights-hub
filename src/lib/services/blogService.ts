@@ -1,8 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { BlogPost, BlogCategory } from '../types';
 import { mapBlogPostToSupabase, mapSupabaseToBlogPost } from '../supabaseTypes';
-import { refreshSession } from './authService';
+import { isLocallyAuthenticated } from './authService';
 
 // Helper to generate random IDs
 export const generateId = (): string => {
@@ -18,47 +17,24 @@ export const generateSlug = (title: string): string => {
     .replace(/^-+|-+$/g, '');
 };
 
-// Helper function to ensure we have a valid session before operations
-const ensureValidSession = async (): Promise<boolean> => {
-  try {
-    // First check if we have a valid session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-      const expiresAt = new Date(session.expires_at! * 1000);
-      const now = new Date();
-      
-      // If session expires in less than 5 minutes, refresh it
-      if ((expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000) {
-        console.log('Session is about to expire, refreshing');
-        return await refreshSession();
-      }
-      
-      // Valid session exists
-      return true;
-    }
-    
-    // No session, try to refresh
-    return await refreshSession();
-  } catch (error) {
-    console.error('Error ensuring valid session:', error);
-    return false;
-  }
-};
-
 // Function to verify a user is authenticated through Supabase or admin token
 const verifyAuthentication = async (): Promise<boolean> => {
   try {
-    // Check Supabase session first
-    const sessionValid = await ensureValidSession();
-    
-    if (sessionValid) {
+    // First check: local authentication (admin)
+    if (isLocallyAuthenticated()) {
+      console.log("User is authenticated locally as admin");
       return true;
     }
     
-    // If no Supabase session, check for admin token in localStorage
-    const adminToken = localStorage.getItem('data-shield-auth-token');
-    return adminToken === 'admin-user-id';
+    // Second check: Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      console.log("User is authenticated via Supabase session");
+      return true;
+    }
+    
+    console.log("User is not authenticated");
+    return false;
   } catch (error) {
     console.error('Error verifying authentication:', error);
     return false;

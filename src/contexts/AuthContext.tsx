@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/lib/types';
 import { getUserByUsername } from '@/lib/services/userService';
-import { setAuthToken, removeAuthToken, getCurrentUser, refreshSession } from '@/lib/services/authService';
+import { setAuthToken, removeAuthToken, getCurrentUser, isLocallyAuthenticated } from '@/lib/services/authService';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Session } from '@supabase/supabase-js';
@@ -14,7 +14,6 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   session: Session | null;
-  refreshUserSession: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -25,65 +24,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Helper function to refresh session that can be exported to components
-  const refreshUserSession = async (): Promise<boolean> => {
-    try {
-      const success = await refreshSession();
-      if (success) {
-        // Get the new session after refresh
-        const { data: { session: newSession } } = await supabase.auth.getSession();
-        if (newSession) {
-          setSession(newSession);
-          setUser({
-            id: newSession.user.id,
-            username: newSession.user.email || 'user',
-            password: '',
-            isAdmin: true
-          });
-          return true;
-        }
-      }
-      return false;
-    } catch (error) {
-      console.error('Error refreshing user session:', error);
-      return false;
-    }
-  };
-
   useEffect(() => {
     const initAuth = async () => {
       setIsLoading(true);
       try {
         console.log("Initializing authentication...");
         
-        // 1. Set up auth state listener FIRST (to prevent missing auth events)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
-          console.log('Auth state changed:', event);
-          
-          if (currentSession) {
-            console.log('Session user data:', currentSession.user);
-            setSession(currentSession);
-            setUser({
-              id: currentSession.user.id,
-              username: currentSession.user.email || 'user',
-              password: '',
-              isAdmin: true
-            });
-          } else if (event === 'SIGNED_OUT') {
-            console.log('User signed out');
-            setUser(null);
-            setSession(null);
-          }
-        });
+        // Check if we have a valid local token first (simplest approach)
+        if (isLocallyAuthenticated()) {
+          const currentUser = await getCurrentUser();
+          setUser(currentUser);
+          console.log("User authenticated locally:", currentUser);
+          setIsLoading(false);
+          return;
+        }
         
-        // 2. Get current session
+        // Get current Supabase session as fallback
         const { data: { session: currentSession } } = await supabase.auth.getSession();
         
         if (currentSession) {
-          console.log('Found existing session:', {
-            user: currentSession.user.email,
-            expires: new Date(currentSession.expires_at! * 1000).toLocaleString() 
-          });
+          console.log('Found existing Supabase session');
           setSession(currentSession);
           setUser({
             id: currentSession.user.id,
@@ -92,12 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             isAdmin: true
           });
         } else {
-          // 3. No session, try refreshing
-          await refreshUserSession();
-        }
-        
-        // 4. If still no session, fall back to custom auth
-        if (!session) {
+          // Last resort: check for any valid custom auth
           console.log('No Supabase session, checking for custom auth');
           const currentUser = await getCurrentUser();
           setUser(currentUser);
@@ -110,11 +65,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     
     initAuth();
-    
-    // Return cleanup function to unsubscribe
-    return () => {
-      supabase.auth.onAuthStateChange(() => {}).data.subscription.unsubscribe();
-    };
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
@@ -122,7 +72,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('Attempting to login with username:', username);
       
-      // Try Supabase login first if it's an email
+      // Simple admin login check
+      if (username === 'admin' && password === 'admin123') {
+        console.log('Admin login successful');
+        const adminUser = {
+          id: 'admin-user-id',
+          username: 'admin',
+          password: 'admin123',
+          isAdmin: true
+        };
+        setUser(adminUser);
+        setAuthToken(adminUser.id);
+        
+        toast({
+          title: "Login successful",
+          description: "Welcome back, admin!"
+        });
+        return true;
+      }
+      
+      // Try Supabase login as fallback
       if (username.includes('@')) {
         console.log('Email login detected, trying Supabase auth');
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -147,22 +116,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         if (error) {
-          console.log('Supabase login failed, falling back to custom auth:', error.message);
+          console.log('Supabase login failed:', error.message);
         }
       }
       
-      // Fall back to custom auth
+      // Check custom users as last resort
       const foundUser = await getUserByUsername(username);
       
       if (foundUser && foundUser.password === password) {
-        console.log('Login successful for user:', foundUser);
+        console.log('Custom login successful for user:', foundUser);
         setUser(foundUser);
         setAuthToken(foundUser.id);
         
         toast({
-            title: "Login successful",
-            description: `Welcome back, ${foundUser.username}!`
-          });
+          title: "Login successful",
+          description: `Welcome back, ${foundUser.username}!`
+        });
         return true;
       }
       
@@ -213,8 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       isAuthenticated: !!user || !!session, 
       isLoading, 
       login, 
-      logout, 
-      refreshUserSession 
+      logout 
     }}>
       {children}
     </AuthContext.Provider>

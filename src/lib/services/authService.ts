@@ -20,72 +20,17 @@ export const removeAuthToken = (): void => {
   localStorage.removeItem('data-shield-auth-token');
 };
 
-export const refreshSession = async (): Promise<boolean> => {
-  try {
-    console.log('Attempting to refresh Supabase session');
-    const { data, error } = await supabase.auth.refreshSession();
-    
-    if (error) {
-      console.error('Error refreshing session:', error.message);
-      return false;
-    }
-
-    if (data && data.session) {
-      console.log('Session refreshed successfully', {
-        user: data.session.user.email,
-        expires: new Date(data.session.expires_at! * 1000).toLocaleString()
-      });
-      return true;
-    } else {
-      console.log('No session returned after refresh attempt');
-      return false;
-    }
-  } catch (error) {
-    console.error('Exception during session refresh:', error);
-    return false;
-  }
+export const isLocallyAuthenticated = (): boolean => {
+  const token = getAuthToken();
+  return token === 'admin-user-id'; // Simple check for admin token
 };
 
 export const getCurrentUser = async (): Promise<User | null> => {
   try {
-    // First attempt to get the current session directly
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-      console.log('Found active Supabase session, returning user from session');
-      console.log('Session user ID:', session.user.id);
-      console.log('Session user email:', session.user.email);
-      
-      return {
-        id: session.user.id,
-        username: session.user.email || 'user',
-        password: '', // We don't store passwords in the frontend
-        isAdmin: true // Assuming logged in users through Supabase are admins for now
-      };
-    }
-
-    // If no session found, try refreshing session as a fallback
-    const refreshSuccess = await refreshSession();
-    
-    if (refreshSuccess) {
-      // Get the refreshed session
-      const { data: { session: refreshedSession } } = await supabase.auth.getSession();
-      
-      if (refreshedSession) {
-        console.log('Using refreshed session');
-        return {
-          id: refreshedSession.user.id,
-          username: refreshedSession.user.email || 'user',
-          password: '',
-          isAdmin: true
-        };
-      }
-    }
-  
-    // If no Supabase session, check if admin user is logged in
+    // First check for local admin authentication
     const token = getAuthToken();
     if (token === 'admin-user-id') {
-      console.log('Admin user is authenticated');
+      console.log('Admin user is authenticated locally');
       return {
         id: 'admin-user-id',
         username: 'admin',
@@ -94,12 +39,26 @@ export const getCurrentUser = async (): Promise<User | null> => {
       };
     }
     
-    // If not admin, fail early
+    // Fallback: try Supabase session
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      console.log('Found active Supabase session');
+      return {
+        id: session.user.id,
+        username: session.user.email || 'user',
+        password: '',
+        isAdmin: true
+      };
+    }
+    
+    // No local or Supabase auth
     if (!token) {
       console.log('No auth token found, user is not authenticated');
       return null;
     }
     
+    // Check custom users
     console.log('Fetching current user with token:', token);
     const user = await getUserById(token);
     if (!user) {
